@@ -103,11 +103,10 @@ def _contains_rosie_reference(prompt: str) -> bool:
     lowered = prompt.lower()
     tokens = (
         "rosie",
+        "rosie hsu",
         "許御琪",
         "御琪",
         "小琪",
-        "逾期",
-        "產學合作專員",
     )
     return any(token in lowered or token in prompt for token in tokens)
 

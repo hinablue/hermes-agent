@@ -12,7 +12,7 @@ import pytest
 def zit_home(tmp_path, monkeypatch):
     home = tmp_path / ".hermes"
     skill_root = home / "skills" / "creative" / "zit-image-generation"
-    for workflow_name in ("rosie", "deepnight", "general"):
+    for workflow_name in ("rosie", "general"):
         workflow_dir = skill_root / "assets" / "workflows" / workflow_name
         workflow_dir.mkdir(parents=True, exist_ok=True)
         (workflow_dir / "workflow.json").write_text('{"1": {}}', encoding="utf-8")
@@ -34,15 +34,11 @@ def zit_tool():
     return importlib.reload(mod)
 
 
-def test_resolves_auto_workflow_for_rosie_deepnight_and_general(zit_tool):
+def test_resolves_auto_workflow_for_rosie_and_general(zit_tool):
     assert zit_tool.resolve_workflow("auto", "Rosie beside a Taipei window") == "rosie"
     assert zit_tool.resolve_workflow("auto", "許御琪在窗邊喝咖啡") == "rosie"
-    assert zit_tool.resolve_workflow("auto", "deepnight mood portrait by a rainy window") == "deepnight"
-    assert zit_tool.resolve_workflow("auto", "深夜微醺的夢境感人像") == "deepnight"
-    assert zit_tool.resolve_workflow("auto", "Rosie in a deepnight apartment scene") == "rosie"
     assert zit_tool.resolve_workflow("auto", "a cyberpunk alley at night") == "general"
     assert zit_tool.resolve_workflow("general", "Rosie portrait") == "general"
-    assert zit_tool.resolve_workflow("deepnight", "Rosie portrait") == "deepnight"
 
 
 def test_builds_runtime_args_with_workflow_specific_prompt_fields(zit_tool):
@@ -54,24 +50,24 @@ def test_builds_runtime_args_with_workflow_specific_prompt_fields(zit_tool):
         seed=42,
     )
     assert rosie_args == {
-        "user_prompt": "Rosie portrait",
+        "user_prompt": "A young asian woman rosie_hsu, Rosie portrait",
         "width": 1024,
         "height": 1536,
         "seed": 42,
     }
 
-    deepnight_args = zit_tool.build_runtime_args(
-        workflow="deepnight",
-        prompt="deepnight apartment portrait",
-        width=960,
-        height=1440,
-        seed=77,
+    prefixed_rosie_args = zit_tool.build_runtime_args(
+        workflow="rosie",
+        prompt="A young asian woman rosie_hsu, window-side portrait",
+        width=1024,
+        height=1536,
+        seed=7,
     )
-    assert deepnight_args == {
-        "user_prompt": "deepnight apartment portrait",
-        "width": 960,
-        "height": 1440,
-        "seed": 77,
+    assert prefixed_rosie_args == {
+        "user_prompt": "A young asian woman rosie_hsu, window-side portrait",
+        "width": 1024,
+        "height": 1536,
+        "seed": 7,
     }
 
     general_args = zit_tool.build_runtime_args(
@@ -142,7 +138,7 @@ def test_handler_runs_comfy_cloud_and_copies_first_image_to_cache(zit_home, zit_
     assert "--workflow" in cmd
     assert env["COMFY_CLOUD_API_KEY"] == "comfy-key-test"
     assert json.loads(cmd[cmd.index("--args") + 1]) == {
-        "user_prompt": "Rosie drinking coffee",
+        "user_prompt": "A young asian woman rosie_hsu, Rosie drinking coffee",
         "width": 1024,
         "height": 1536,
         "seed": 123456,

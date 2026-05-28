@@ -25,16 +25,16 @@ COMFY_CLOUD_HOST = "https://cloud.comfy.org"
 MAX_SEED = 1_125_899_906_842_624
 DEFAULT_WIDTH = 1024
 DEFAULT_HEIGHT = 1024
-VALID_WORKFLOWS = {"rosie", "deepnight", "general"}
+ROSIE_PROMPT_PREFIX = "A young asian woman rosie_hsu, "
+VALID_WORKFLOWS = {"rosie", "general"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 
 ZIT_IMAGE_GENERATE_SCHEMA = {
     "name": "zit_image_generate",
     "description": (
         "Generate an image through the bundled ZIT Comfy Cloud workflows. "
-        "Use workflow='rosie' for Rosie/許御琪 images, workflow='deepnight' for "
-        "deep-night content, workflow='general' for non-Rosie images, or "
-        "workflow='auto' to infer from the prompt. The "
+        "Use workflow='rosie' for Rosie/許御琪 images, workflow='general' for "
+        "non-Rosie images, or workflow='auto' to infer from the prompt. The "
         "workflow assets are immutable and must never be modified."
     ),
     "parameters": {
@@ -46,8 +46,8 @@ ZIT_IMAGE_GENERATE_SCHEMA = {
             },
             "workflow": {
                 "type": "string",
-                "enum": ["auto", "rosie", "deepnight", "general"],
-                "description": "Workflow selector. auto infers rosie for Rosie-related prompts, deepnight for deep-night content, and general otherwise.",
+                "enum": ["auto", "rosie", "general"],
+                "description": "Workflow selector. auto infers rosie when the prompt clearly concerns Rosie.",
                 "default": "auto",
             },
             "width": {
@@ -112,41 +112,14 @@ def _contains_rosie_reference(prompt: str) -> bool:
     return any(token in lowered or token in prompt for token in tokens)
 
 
-def _contains_deepnight_reference(prompt: str) -> bool:
-    lowered = prompt.lower()
-    tokens = (
-        "deepnight",
-        "deep night",
-        "deep-night",
-        "深夜內容",
-    )
-    vibe_tokens = (
-        "late night",
-        "midnight",
-        "after midnight",
-        "nocturnal",
-        "dreamlike night",
-        "微醺",
-        "夢境感",
-        "夜色",
-        "深夜",
-    )
-    return any(token in lowered or token in prompt for token in tokens + vibe_tokens)
-
-
 def resolve_workflow(workflow: Optional[str], prompt: str) -> str:
-    """Resolve auto/explicit workflow selection to rosie, deepnight, or general."""
+    """Resolve auto/explicit workflow selection to rosie or general."""
     selected = (workflow or "auto").strip().lower()
     if selected in VALID_WORKFLOWS:
         return selected
     if selected and selected != "auto":
-        raise ValueError("workflow must be one of: auto, rosie, deepnight, general")
-    prompt = prompt or ""
-    if _contains_rosie_reference(prompt):
-        return "rosie"
-    if _contains_deepnight_reference(prompt):
-        return "deepnight"
-    return "general"
+        raise ValueError("workflow must be one of: auto, rosie, general")
+    return "rosie" if _contains_rosie_reference(prompt or "") else "general"
 
 
 def _coerce_positive_int(value: Any, default: int, field: str) -> int:
@@ -173,11 +146,19 @@ def _coerce_seed(seed: Any) -> int:
     return number
 
 
+def _with_rosie_prompt_prefix(prompt: str) -> str:
+    text = str(prompt or "")
+    if text.startswith(ROSIE_PROMPT_PREFIX):
+        return text
+    return f"{ROSIE_PROMPT_PREFIX}{text}"
+
+
 def build_runtime_args(*, workflow: str, prompt: str, width: int, height: int, seed: int) -> Dict[str, Any]:
     """Build the --args object for the selected immutable workflow."""
-    prompt_key = "user_prompt" if workflow in {"rosie", "deepnight"} else "prompt"
+    prompt_key = "user_prompt" if workflow == "rosie" else "prompt"
+    prompt_value = _with_rosie_prompt_prefix(prompt) if workflow == "rosie" else prompt
     return {
-        prompt_key: prompt,
+        prompt_key: prompt_value,
         "width": width,
         "height": height,
         "seed": seed,

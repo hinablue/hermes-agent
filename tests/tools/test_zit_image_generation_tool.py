@@ -1,4 +1,4 @@
-"""Tests for tools/zit_image_generation_tool.py."""
+"""Tests for tools/zit_image_generation_tool.py and tools/zit_prompt_builder.py."""
 
 from __future__ import annotations
 
@@ -30,6 +30,14 @@ def zit_home(tmp_path, monkeypatch):
 def zit_tool():
     import importlib
     import tools.zit_image_generation_tool as mod
+
+    return importlib.reload(mod)
+
+
+@pytest.fixture
+def zit_builder():
+    import importlib
+    import tools.zit_prompt_builder as mod
 
     return importlib.reload(mod)
 
@@ -85,8 +93,8 @@ def test_builds_runtime_args_with_workflow_specific_prompt_fields(zit_tool):
     }
 
 
-def test_resolve_prompt_text_serializes_english_key_prompt_json(zit_tool):
-    prompt = zit_tool.resolve_prompt_text({
+def test_builder_serializes_english_key_prompt_json(zit_builder):
+    prompt, built = zit_builder.resolve_prompt_inputs({
         "prompt_json": {
             "camera": {
                 "avoid": "不要塑膠皮膚",
@@ -103,11 +111,36 @@ def test_resolve_prompt_text_serializes_english_key_prompt_json(zit_tool):
         '{"scene":{"description":"Rosie 在海邊玩水","mood":"清爽、夏日"},'
         '"camera":{"requirements":"維持 Rosie 辨識度","avoid":"不要塑膠皮膚"}}'
     )
+    assert built == {
+        "scene": {
+            "description": "Rosie 在海邊玩水",
+            "mood": "清爽、夏日",
+        },
+        "camera": {
+            "requirements": "維持 Rosie 辨識度",
+            "avoid": "不要塑膠皮膚",
+        },
+    }
 
 
-def test_resolve_prompt_text_rejects_plain_prompt_when_json_mode_requested(zit_tool):
+def test_builder_rejects_plain_prompt_when_json_mode_requested(zit_builder):
     with pytest.raises(ValueError, match="JSON mode was requested"):
-        zit_tool.resolve_prompt_text({"prompt": "用 JSON 生成 Rosie 在海邊玩水"})
+        zit_builder.resolve_prompt_inputs({"prompt": "用 JSON 生成 Rosie 在海邊玩水"})
+
+
+def test_builder_exposes_fixed_json_template(zit_builder):
+    template = zit_builder.PROMPT_JSON_BUILDER_TEMPLATE
+
+    assert template["scene"]["description"].startswith("[一句話描述整體畫面")
+    assert template["subject"]["ethnicity"]["group"] == "[東亞（台灣／華人）]"
+    assert template["camera"]["avoid"].startswith("[列出不要出現的問題")
+
+
+def test_builder_rejects_request_text_until_llm_expansion_is_wired(zit_builder):
+    with pytest.raises(NotImplementedError, match="LLM-backed request_text expansion"):
+        zit_builder.resolve_prompt_inputs({
+            "request_text": "用 JSON 生成 Rosie 在海邊玩水自拍，可愛，夏日自然光"
+        })
 
 
 def test_handler_runs_comfy_cloud_and_copies_first_image_to_cache(zit_home, zit_tool, monkeypatch, tmp_path):
@@ -148,6 +181,7 @@ def test_handler_runs_comfy_cloud_and_copies_first_image_to_cache(zit_home, zit_
     assert result["seed"] == 123456
     assert result["width"] == 1024
     assert result["height"] == 1536
+    assert result["built_prompt_json"] is None
     cached = Path(result["image"])
     assert cached.exists()
     assert cached.read_bytes() == b"PNGDATA"
@@ -213,6 +247,16 @@ def test_handler_accepts_prompt_json_and_serializes_it_for_generation(zit_home, 
 
     assert result["success"] is True
     assert result["workflow"] == "rosie"
+    assert result["built_prompt_json"] == {
+        "scene": {
+            "description": "Rosie 在冰果室吃鳳梨冰",
+            "environment": "白綠馬賽克牆與水果玻璃櫃",
+        },
+        "camera": {
+            "requirements": "維持 Rosie 角色辨識度",
+            "avoid": "不要文字亂碼",
+        },
+    }
     cmd, _env = calls[0]
     assert json.loads(cmd[cmd.index("--args") + 1]) == {
         "user_prompt": (
@@ -224,6 +268,26 @@ def test_handler_accepts_prompt_json_and_serializes_it_for_generation(zit_home, 
         "height": 1536,
         "seed": 42,
     }
+
+
+def test_handler_rejects_request_text_until_llm_builder_is_wired(zit_home, zit_tool, monkeypatch):
+    called = False
+
+    def fake_run(*args, **kwargs):
+        nonlocal called
+        called = True
+        raise AssertionError("subprocess must not run when request_text expansion is not wired")
+
+    monkeypatch.setattr(zit_tool.subprocess, "run", fake_run)
+    result = json.loads(zit_tool._handle_zit_image_generate({
+        "request_text": "用 JSON 生成 Rosie 在海邊玩水自拍，可愛，夏日自然光",
+        "workflow": "auto",
+    }))
+
+    assert result["success"] is False
+    assert result["error_type"] == "invalid_request"
+    assert "LLM-backed request_text expansion" in result["error"]
+    assert called is False
 
 
 def test_handler_rejects_asset_write_requests_before_subprocess(zit_home, zit_tool, monkeypatch):

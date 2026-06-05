@@ -20,6 +20,10 @@ from typing import Any, Dict, Optional
 
 from hermes_constants import get_hermes_home
 from tools.registry import registry, tool_error, tool_result
+from tools.zit_prompt_builder import (
+    PROMPT_JSON_TEMPLATE_SCHEMA,
+    resolve_prompt_inputs,
+)
 
 COMFY_CLOUD_HOST = "https://cloud.comfy.org"
 MAX_SEED = 1_125_899_906_842_624
@@ -28,124 +32,6 @@ DEFAULT_HEIGHT = 1024
 ROSIE_PROMPT_PREFIX = "A young asian woman rosie_hsu, "
 VALID_WORKFLOWS = {"rosie", "general"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
-
-PROMPT_JSON_TEMPLATE_SCHEMA = {
-    "type": "object",
-    "description": (
-        "Preferred structured prompt spec. Use English keys and fill the values in Chinese. "
-        "The tool serializes the full JSON directly into the final generation prompt."
-    ),
-    "additionalProperties": False,
-    "properties": {
-        "scene": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "description": {"type": "string"},
-                "environment": {"type": "string"},
-                "mood": {"type": "string"},
-            },
-        },
-        "aesthetics": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "style": {"type": "string"},
-                "appearance": {"type": "string"},
-            },
-        },
-        "lighting": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "description": {"type": "string"},
-            },
-        },
-        "subject": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "ethnicity": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "group": {"type": "string"},
-                        "age": {"type": "string"},
-                        "body": {"type": "string"},
-                    },
-                },
-                "appearance": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "hair": {"type": "string"},
-                        "features": {"type": "string"},
-                        "skin": {"type": "string"},
-                    },
-                },
-                "pose": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "type": {"type": "string"},
-                        "action": {"type": "string"},
-                        "frame": {"type": "string"},
-                    },
-                },
-                "clothing": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "top": {"type": "string"},
-                        "bottom": {"type": "string"},
-                    },
-                },
-                "accessories": {
-                    "type": "object",
-                    "additionalProperties": False,
-                    "properties": {
-                        "jewelry": {"type": "string"},
-                        "other": {"type": "string"},
-                    },
-                },
-            },
-        },
-        "props_and_scene": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "background": {"type": "string"},
-                "main_prop": {"type": "string"},
-            },
-        },
-        "camera": {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": {
-                "requirements": {"type": "string"},
-                "shooting": {"type": "string"},
-                "composition": {"type": "string"},
-                "retouch": {"type": "string"},
-                "avoid": {"type": "string"},
-            },
-        },
-    },
-}
-
-PROMPT_JSON_KEY_ORDER = {
-    None: ("scene", "aesthetics", "lighting", "subject", "props_and_scene", "camera"),
-    "scene": ("description", "environment", "mood"),
-    "aesthetics": ("style", "appearance"),
-    "lighting": ("description",),
-    "subject": ("ethnicity", "appearance", "pose", "clothing", "accessories"),
-    "ethnicity": ("group", "age", "body"),
-    "appearance": ("hair", "features", "skin"),
-    "pose": ("type", "action", "frame"),
-    "clothing": ("top", "bottom"),
-    "accessories": ("jewelry", "other"),
-    "props_and_scene": ("background", "main_prop"),
-    "camera": ("requirements", "shooting", "composition", "retouch", "avoid"),
-}
 
 ZIT_IMAGE_GENERATE_SCHEMA = {
     "name": "zit_image_generate",
@@ -161,9 +47,17 @@ ZIT_IMAGE_GENERATE_SCHEMA = {
             "prompt": {
                 "type": "string",
                 "description": (
-                    "Legacy freeform prompt string. Prefer prompt_json when you want the tool to serialize "
-                    "an English-key structured JSON prompt directly into the final generation prompt. "
-                    "If the user explicitly says 用 JSON 生成, the caller should use prompt_json instead of prompt."
+                    "Legacy freeform prompt string. Prefer request_text for natural-language builder mode, "
+                    "or prompt_json when you want the tool to serialize an English-key structured JSON prompt "
+                    "directly into the final generation prompt."
+                ),
+            },
+            "request_text": {
+                "type": "string",
+                "description": (
+                    "Reserved Builder-layer natural-language request input. JSON-mode phrases like 用 JSON 生成 are recognised, "
+                    "but LLM-backed expansion is not wired inside this tool yet; callers should convert the request into prompt_json "
+                    "using the fixed template before invoking the runner path."
                 ),
             },
             "prompt_json": {
@@ -278,54 +172,6 @@ def _with_rosie_prompt_prefix(prompt: str) -> str:
     return f"{ROSIE_PROMPT_PREFIX}{text}"
 
 
-def _normalize_prompt_json(value: Any, *, context_key: Optional[str] = None) -> Any:
-    if isinstance(value, dict):
-        ordered: Dict[str, Any] = {}
-        preferred_order = PROMPT_JSON_KEY_ORDER.get(context_key, ())
-        for key in preferred_order:
-            if key in value:
-                ordered[key] = _normalize_prompt_json(value[key], context_key=key)
-        for key, child in value.items():
-            if key not in ordered:
-                ordered[key] = _normalize_prompt_json(child, context_key=key)
-        return ordered
-    if isinstance(value, list):
-        return [_normalize_prompt_json(item, context_key=context_key) for item in value]
-    return value
-
-
-def _serialize_prompt_json(prompt_json: Any) -> str:
-    if isinstance(prompt_json, str):
-        text = prompt_json.strip()
-        if not text:
-            raise ValueError("prompt_json must not be empty")
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            return text
-        return json.dumps(_normalize_prompt_json(parsed), ensure_ascii=False, separators=(",", ":"))
-    if not isinstance(prompt_json, dict):
-        raise ValueError("prompt_json must be an object or a JSON string")
-    return json.dumps(_normalize_prompt_json(prompt_json), ensure_ascii=False, separators=(",", ":"))
-
-
-def _requests_json_mode(text: str) -> bool:
-    normalized = (text or "").lower().replace(" ", "")
-    return "用json生成" in normalized or "json生成" in normalized
-
-
-def resolve_prompt_text(args: Dict[str, Any]) -> str:
-    prompt_json = args.get("prompt_json")
-    if prompt_json not in (None, ""):
-        return _serialize_prompt_json(prompt_json)
-    prompt = str(args.get("prompt") or "").strip()
-    if _requests_json_mode(prompt):
-        raise ValueError("JSON mode was requested; provide prompt_json instead of a plain prompt string")
-    if not prompt:
-        raise ValueError("Either prompt or prompt_json is required for ZIT image generation")
-    return prompt
-
-
 def build_runtime_args(*, workflow: str, prompt: str, width: int, height: int, seed: int) -> Dict[str, Any]:
     """Build the --args object for the selected immutable workflow."""
     prompt_key = "user_prompt" if workflow == "rosie" else "prompt"
@@ -422,7 +268,7 @@ def check_zit_image_generation_requirements() -> bool:
 
 def _handle_zit_image_generate(args, **kw):
     try:
-        prompt = resolve_prompt_text(args)
+        prompt, built_prompt_json = resolve_prompt_inputs(args)
     except Exception as exc:
         return tool_error(str(exc), success=False, error_type="invalid_request")
     if _looks_like_asset_mutation_request(prompt):
@@ -522,6 +368,7 @@ def _handle_zit_image_generate(args, **kw):
         "model": workflow,
         "workflow": workflow,
         "prompt": prompt,
+        "built_prompt_json": built_prompt_json,
         "prompt_id": runner_result.get("prompt_id"),
         "seed": seed,
         "width": width,

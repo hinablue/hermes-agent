@@ -1,7 +1,7 @@
 #!/command/with-contenv sh
 # shellcheck shell=sh
 # Make supervise/ trees for ALL declared s6 services queryable and
-# controllable by the unprivileged hermes user (UID 10000).
+# controllable by the unprivileged hermes user (UID 1000).
 #
 # Background (PR #30136 review item I4): the entire s6 lifecycle
 # (s6-svc, s6-svstat, s6-svwait) is dispatched as the hermes user

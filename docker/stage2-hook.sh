@@ -31,10 +31,10 @@ as_hermes() { [ "$(id -u)" = 0 ] || { "$@"; return; }; s6-setuidgid hermes "$@";
 # Under s6-overlay this no longer works: the bootstrap (UID remap, volume +
 # build-tree chown, config seeding) all require root, and they're skipped when
 # the container starts non-root. The baked image trees (/opt/data, /opt/hermes/
-# .venv, ui-tui, node_modules) stay owned by the hermes build UID (10000), so an
+# .venv, ui-tui, node_modules) stay owned by the hermes build UID (1000), so an
 # arbitrary `--user` UID can't write them — the runtime then fails with EACCES
 # on a bind mount, or hard-crashes on a named volume (Docker initialises the
-# volume from the image as UID 10000, and the non-root start can't even `cd`
+# volume from the image as UID 1000, and the non-root start can't even `cd`
 # into $HERMES_HOME). See #34837 for the supervision-tree side of this.
 #
 # The supported way to match host-side ownership is to start as root (the image
@@ -44,7 +44,7 @@ as_hermes() { [ "$(id -u)" = 0 ] || { "$@"; return; }; s6-setuidgid hermes "$@";
 #
 # preinit runs setuid-root (euid=0) but cont-init.d hooks run with the real UID
 # the container was started as, so `id -u` here is the host UID (e.g. 1000), and
-# `id -u hermes` is the unremapped build UID (10000) because no root-only remap
+# `id -u hermes` is the unremapped build UID (1000) because no root-only remap
 # could run. root starts (id -u = 0) and the normal supervised drop to the
 # hermes UID are both unaffected.
 cur_uid="$(id -u)"
@@ -99,7 +99,7 @@ validate_uid_gid() {
 # Synology, unRAID) expect the LinuxServer.io PUID/PGID convention and
 # bind-mount /opt/data from a host directory owned by their own UID; without
 # this alias those vars are silently ignored and the s6-setuidgid drop to
-# UID 10000 leaves the runtime unable to read the volume.  HERMES_UID/
+# UID 1000 leaves the runtime unable to read the volume.  HERMES_UID/
 # HERMES_GID still win when both are set.  See #15290, salvages #25872.
 HERMES_UID="${HERMES_UID:-${PUID:-}}"
 HERMES_GID="${HERMES_GID:-${PGID:-}}"
@@ -119,7 +119,7 @@ fi
 # When the user bind-mounts the host Docker daemon socket
 # (`-v /var/run/docker.sock:/var/run/docker.sock`) to use the `docker`
 # terminal backend from inside the container, the socket is owned by the
-# host's `docker` group (or root). The supervised hermes user (UID 10000)
+# host's `docker` group (or root). The supervised hermes user (UID 1000)
 # is not a member of any group that matches the socket's GID, so every
 # `docker` invocation EACCES'es and `check_terminal_requirements()` fails.
 # See #16703.
@@ -131,8 +131,8 @@ fi
 # /etc/group entry whose GID matches the socket, the kernel-granted
 # supp group is silently wiped between PID 1 and the dropped process.
 # Confirmed empirically: `--group-add 998` alone leaves the dropped
-# hermes process with `Groups: 10000` (998 gone); after this hook adds
-# the entry, the dropped process has `Groups: 998 10000` as expected.
+# hermes process with `Groups: 1000` (998 gone); after this hook adds
+# the entry, the dropped process has `Groups: 998 1000` as expected.
 #
 # Fix: detect the socket's GID at boot and ensure /etc/group has a
 # matching entry that includes hermes. Idempotent across container
@@ -218,7 +218,7 @@ fi
 #     hermes UID can't write the build output (#28851).
 #   - gateway: Python writes __pycache__ and runtime artifacts beneath the
 #     gateway package on first import. After a UID remap those source-owned
-#     paths still belong to the build-time UID (10000) unless repaired here,
+#     paths still belong to the build-time UID (1000) unless repaired here,
 #     producing EACCES for the supervised gateway (#27221).
 #   - node_modules: root-level dependencies (puppeteer, web tooling)
 #     that runtime code may walk/update.
@@ -233,7 +233,7 @@ fi
 # HERMES_UID/PUID remap `stat $HERMES_HOME` always already matches the new
 # UID and `needs_chown` is false — but the build trees under /opt/hermes
 # are NOT touched by usermod and remain owned by the build-time UID
-# (10000). Gating them on $HERMES_HOME ownership (as #35027 did) silently
+# (1000). Gating them on $HERMES_HOME ownership (as #35027 did) silently
 # skipped this chown on the common PUID/NAS path, regressing lazy installs
 # and TUI rebuilds. Probe the build trees directly instead: chown only
 # when the venv is not already owned by the runtime hermes UID. Idempotent

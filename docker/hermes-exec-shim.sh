@@ -5,7 +5,7 @@
 # Background
 # ----------
 # The s6 image runs the supervised gateway/main process as the unprivileged
-# `hermes` user (UID 10000). When an operator runs `docker exec <c> hermes ...`
+# `hermes` user (UID 1000). When an operator runs `docker exec <c> hermes ...`
 # the default UID is root (0), and any file the command writes under
 # $HERMES_HOME — auth.json, .env, config.yaml — ends up root-owned and
 # unreadable to the supervised gateway. The most common manifestation: the
@@ -50,7 +50,7 @@ if [ ! -x "$REAL" ]; then
 fi
 
 # Already non-root? Just exec the real binary. This is the hot path for
-# supervised processes (uid 10000) and for `docker exec --user hermes`.
+# supervised processes (uid 1000) and for `docker exec --user hermes`.
 if [ "$(id -u)" != "0" ]; then
     exec "$REAL" "$@"
 fi

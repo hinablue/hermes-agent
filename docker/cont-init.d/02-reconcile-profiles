@@ -19,7 +19,7 @@
 # so we chown the scandir before invoking the reconciler. We
 # additionally chown the s6-svscan control FIFO so the hermes user
 # can send rescan signals via ``s6-svscanctl -a``; without this the
-# entire runtime-registration path is inert under UID 10000 (the
+# entire runtime-registration path is inert under UID 1000 (the
 # Python wrapper catches the resulting EACCES, prints a warning,
 # and swallows the failure).
 set -e

@@ -86,7 +86,7 @@ RUN set -eu; \
     ln -sf /init /usr/bin/tini
 
 # Non-root user for runtime; UID can be overridden via HERMES_UID at runtime
-RUN useradd -u 10000 -m -d /opt/data hermes
+RUN useradd -u 1000 -m -d /opt/data hermes
 
 COPY --chmod=0755 --from=uv_source /usr/local/bin/uv /usr/local/bin/uvx /usr/local/bin/
 
@@ -198,7 +198,7 @@ RUN chmod -R a+rX /opt/hermes && \
 # Start as root so the s6-overlay stage2 hook can usermod/groupmod and chown
 # the data volume. Each supervised service then drops to the hermes user via
 # `s6-setuidgid hermes` in its run script. If HERMES_UID is unset, services
-# run as the default hermes user (UID 10000).
+# run as the default hermes user (UID 1000).
 
 # ---------- Link hermes-agent itself (editable) ----------
 # Deps are already installed in the cached layer above; `--no-deps` makes
@@ -275,7 +275,7 @@ ENV HERMES_HOME=/opt/data
 # `docker exec` privilege-drop shim. When operators run
 # `docker exec <c> hermes ...` they default to root, and any file the
 # command writes under $HERMES_HOME (auth.json, .env, config.yaml) ends
-# up root-owned and unreadable to the supervised gateway (UID 10000).
+# up root-owned and unreadable to the supervised gateway (UID 1000).
 # The shim lives at /opt/hermes/bin/hermes, sits earliest on PATH, and
 # transparently re-exec's the real venv binary via `s6-setuidgid hermes`
 # when invoked as root. Non-root callers (supervised processes,

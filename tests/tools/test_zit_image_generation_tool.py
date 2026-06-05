@@ -85,6 +85,31 @@ def test_builds_runtime_args_with_workflow_specific_prompt_fields(zit_tool):
     }
 
 
+def test_resolve_prompt_text_serializes_english_key_prompt_json(zit_tool):
+    prompt = zit_tool.resolve_prompt_text({
+        "prompt_json": {
+            "camera": {
+                "avoid": "不要塑膠皮膚",
+                "requirements": "維持 Rosie 辨識度",
+            },
+            "scene": {
+                "mood": "清爽、夏日",
+                "description": "Rosie 在海邊玩水",
+            },
+        }
+    })
+
+    assert prompt == (
+        '{"scene":{"description":"Rosie 在海邊玩水","mood":"清爽、夏日"},'
+        '"camera":{"requirements":"維持 Rosie 辨識度","avoid":"不要塑膠皮膚"}}'
+    )
+
+
+def test_resolve_prompt_text_rejects_plain_prompt_when_json_mode_requested(zit_tool):
+    with pytest.raises(ValueError, match="JSON mode was requested"):
+        zit_tool.resolve_prompt_text({"prompt": "用 JSON 生成 Rosie 在海邊玩水"})
+
+
 def test_handler_runs_comfy_cloud_and_copies_first_image_to_cache(zit_home, zit_tool, monkeypatch, tmp_path):
     generated = tmp_path / "generated.png"
     generated.write_bytes(b"PNGDATA")
@@ -142,6 +167,62 @@ def test_handler_runs_comfy_cloud_and_copies_first_image_to_cache(zit_home, zit_
         "width": 1024,
         "height": 1536,
         "seed": 123456,
+    }
+
+
+def test_handler_accepts_prompt_json_and_serializes_it_for_generation(zit_home, zit_tool, monkeypatch, tmp_path):
+    generated = tmp_path / "generated.png"
+    generated.write_bytes(b"PNGDATA")
+    calls = []
+
+    def fake_run(cmd, *, capture_output, text, timeout, env):
+        calls.append((cmd, env))
+
+        class Result:
+            returncode = 0
+            stdout = json.dumps({
+                "status": "success",
+                "prompt_id": "pid-json",
+                "outputs": [
+                    {"file": str(generated), "type": "image", "filename": "generated.png"}
+                ],
+                "warnings": [],
+            })
+            stderr = ""
+
+        return Result()
+
+    monkeypatch.setattr(zit_tool.subprocess, "run", fake_run)
+
+    result = json.loads(zit_tool._handle_zit_image_generate({
+        "prompt_json": {
+            "scene": {
+                "description": "Rosie 在冰果室吃鳳梨冰",
+                "environment": "白綠馬賽克牆與水果玻璃櫃",
+            },
+            "camera": {
+                "requirements": "維持 Rosie 角色辨識度",
+                "avoid": "不要文字亂碼",
+            },
+        },
+        "workflow": "rosie",
+        "width": 1024,
+        "height": 1536,
+        "seed": 42,
+    }))
+
+    assert result["success"] is True
+    assert result["workflow"] == "rosie"
+    cmd, _env = calls[0]
+    assert json.loads(cmd[cmd.index("--args") + 1]) == {
+        "user_prompt": (
+            "A young asian woman rosie_hsu, "
+            '{"scene":{"description":"Rosie 在冰果室吃鳳梨冰","environment":"白綠馬賽克牆與水果玻璃櫃"},'
+            '"camera":{"requirements":"維持 Rosie 角色辨識度","avoid":"不要文字亂碼"}}'
+        ),
+        "width": 1024,
+        "height": 1536,
+        "seed": 42,
     }
 
 

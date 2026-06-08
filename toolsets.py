@@ -47,7 +47,7 @@ _HERMES_CORE_TOOLS = [
     # Text-to-speech
     "text_to_speech",
     # Planning & memory
-    "todo", "memory",
+    "todo", "memory", "openviking_diary_build",
     # Session history search
     "session_search",
     # Clarifying questions
@@ -213,6 +213,12 @@ TOOLSETS = {
     "memory": {
         "description": "Persistent memory across sessions (personal notes + user profile)",
         "tools": ["memory"],
+        "includes": []
+    },
+
+    "openviking": {
+        "description": "High-level OpenViking diary publication workflow for session logs, markdown, and optional image upload",
+        "tools": ["openviking_diary_build"],
         "includes": []
     },
 

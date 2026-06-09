@@ -13,6 +13,7 @@ import json
 import logging
 import os
 import re
+import time
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
@@ -29,6 +30,10 @@ DEFAULT_IMAGE_WIDTH = 1024
 DEFAULT_IMAGE_HEIGHT = 1536
 MAX_SOURCE_CHARS = 24_000
 MAX_IMAGE_PROMPT_CHARS = 4_000
+DIARY_READ_TIMEOUT_SECONDS = 120.0
+DIARY_WRITE_TIMEOUT_SECONDS = 300.0
+WRITE_VERIFY_ATTEMPTS = 20
+WRITE_VERIFY_DELAY_SECONDS = 1.0
 _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 
 OPENVIKING_DIARY_BUILD_SCHEMA = {
@@ -211,8 +216,8 @@ def _mkdir(client: _VikingClient, uri: str) -> None:
     client.post("/api/v1/fs/mkdir", {"uri": uri})
 
 
-def _read_content(client: _VikingClient, uri: str) -> str:
-    raw = client.get("/api/v1/content/read", params={"uri": uri})
+def _read_content(client: _VikingClient, uri: str, *, timeout: float = DIARY_READ_TIMEOUT_SECONDS) -> str:
+    raw = client.get("/api/v1/content/read", params={"uri": uri}, timeout=timeout)
     result = _unwrap_result(raw)
     if isinstance(result, str):
         return result
@@ -229,14 +234,29 @@ def _write_content(client: _VikingClient, uri: str, content: str, *, mode: str =
         raw = client.post(
             "/api/v1/content/write",
             {"uri": uri, "content": content, "mode": requested_mode, "wait": True},
+            timeout=DIARY_WRITE_TIMEOUT_SECONDS,
         )
     except Exception as exc:
         timed_out = "timed out" in str(exc).lower()
-        if timed_out and _is_file(client, uri):
-            verified = _read_content(client, uri)
-            if verified == content:
-                logger.warning("OpenViking content/write timed out but verified content exists at %s", uri)
-                return {"uri": uri, "timed_out_but_verified": True, "written_bytes": len(content)}
+        if timed_out:
+            verifier_client = _make_client() if isinstance(client, _VikingClient) else client
+            for attempt in range(WRITE_VERIFY_ATTEMPTS):
+                if _is_file(verifier_client, uri):
+                    verified = _read_content(verifier_client, uri)
+                    if verified == content:
+                        logger.warning(
+                            "OpenViking content/write timed out but verified content exists at %s after %s attempt(s)",
+                            uri,
+                            attempt + 1,
+                        )
+                        return {
+                            "uri": uri,
+                            "timed_out_but_verified": True,
+                            "written_bytes": len(content),
+                            "verification_attempts": attempt + 1,
+                        }
+                if attempt < WRITE_VERIFY_ATTEMPTS - 1:
+                    time.sleep(WRITE_VERIFY_DELAY_SECONDS)
         raise
     result = _unwrap_result(raw)
     return result if isinstance(result, dict) else {}

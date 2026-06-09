@@ -302,10 +302,35 @@ def test_skip_if_exists_normalizes_wrapped_markdown_dir(monkeypatch):
     assert nested_uri not in fake._existing
 
 
+def test_read_content_uses_diary_read_timeout():
+    class ReadTimeoutCaptureClient(FakeClient):
+        def __init__(self):
+            super().__init__(content_map={"viking://resources/diary/rosie_hsu/20260609/content/content.md": "# ok\n"})
+            self.read_calls = []
+
+        def get(self, path, params=None, **kwargs):
+            if path == "/api/v1/content/read":
+                self.read_calls.append({"params": dict(params or {}), "kwargs": dict(kwargs)})
+            return super().get(path, params, **kwargs)
+
+    client = ReadTimeoutCaptureClient()
+    uri = "viking://resources/diary/rosie_hsu/20260609/content/content.md"
+
+    result = diary_tool._read_content(client, uri)
+
+    assert result == "# ok\n"
+    assert client.read_calls[0]["kwargs"]["timeout"] == diary_tool.DIARY_READ_TIMEOUT_SECONDS
+
+
 def test_write_content_accepts_verified_timeout(monkeypatch):
     class TimeoutWriteClient(FakeClient):
+        def __init__(self, **kwargs):
+            super().__init__(**kwargs)
+            self.post_timeouts = []
+
         def post(self, path, payload=None, **kwargs):
             if path == "/api/v1/content/write":
+                self.post_timeouts.append(kwargs.get("timeout"))
                 assert payload is not None
                 uri = payload["uri"]
                 self._existing.add(uri)
@@ -322,4 +347,56 @@ def test_write_content_accepts_verified_timeout(monkeypatch):
 
     assert result["uri"] == content_uri
     assert result["timed_out_but_verified"] is True
+    assert result["verification_attempts"] == 1
+    assert fake.post_timeouts == [diary_tool.DIARY_WRITE_TIMEOUT_SECONDS]
     assert fake.writes[0]["mode"] == "create"
+
+
+def test_write_content_accepts_verified_timeout_after_retry(monkeypatch):
+    class DelayedTimeoutWriteClient(FakeClient):
+        def __init__(self, *, release_after_attempt=2, **kwargs):
+            super().__init__(**kwargs)
+            self._stat_calls = 0
+            self._pending_uri = None
+            self._pending_content = None
+            self._release_after_attempt = release_after_attempt
+            self.post_timeouts = []
+
+        def get(self, path, params=None, **kwargs):
+            params = params or {}
+            if path == "/api/v1/fs/stat":
+                uri = params.get("uri")
+                if uri == self._pending_uri:
+                    self._stat_calls += 1
+                    if self._stat_calls >= self._release_after_attempt:
+                        self._existing.add(uri)
+                        self._dir_uris.discard(uri)
+                        self._content_map[uri] = self._pending_content
+                elif uri in self._existing:
+                    self._stat_calls += 1
+            return super().get(path, params, **kwargs)
+
+        def post(self, path, payload=None, **kwargs):
+            if path == "/api/v1/content/write":
+                self.post_timeouts.append(kwargs.get("timeout"))
+                assert payload is not None
+                self.writes.append(payload)
+                self._pending_uri = payload["uri"]
+                self._pending_content = payload["content"]
+                raise RuntimeError("timed out")
+            return super().post(path, payload, **kwargs)
+
+    monkeypatch.setattr(diary_tool.time, "sleep", lambda _seconds: None)
+    content_uri = "viking://resources/diary/rosie_hsu/20260607/content/content.md"
+    fake = DelayedTimeoutWriteClient(
+        existing={"viking://resources/diary/rosie_hsu/20260607/content"},
+        release_after_attempt=6,
+    )
+
+    result = diary_tool._write_content(fake, content_uri, "# 2026-06-07\n\nverified later\n", mode="replace")  # type: ignore[arg-type]
+
+    assert result["uri"] == content_uri
+    assert result["timed_out_but_verified"] is True
+    assert result["verification_attempts"] == 6
+    assert fake.post_timeouts == [diary_tool.DIARY_WRITE_TIMEOUT_SECONDS]
+    assert fake._content_map[content_uri].startswith("# 2026-06-07")

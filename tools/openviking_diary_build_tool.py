@@ -319,6 +319,10 @@ def _parse_jsonl_messages(text: str, *, source_uri: str, assistant_role: str, ro
             continue
         content = _normalize_message_content(item.get("content"))
         if not content:
+            content = _normalize_message_content(item.get("parts"))
+        if not content:
+            content = _normalize_message_content(item.get("message"))
+        if not content:
             continue
         matches.append(
             {

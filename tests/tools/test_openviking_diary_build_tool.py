@@ -183,3 +183,52 @@ def test_builds_markdown_for_matching_material(monkeypatch):
     assert fake.mkdir_calls == [content_dir]
     assert fake.writes and fake.writes[0]["uri"] == content_uri
     assert "今天我整理了好多資料" in fake._content_map[content_uri]
+
+
+def test_builds_markdown_from_archived_messages_with_parts_payload(monkeypatch):
+    session_uri = "viking://session/20260608_112942_6e2bee56"
+    archived_messages_uri = f"{session_uri}/history/archive_001/messages.jsonl"
+    content_uri = "viking://resources/diary/rosie_hsu/20260608/content/content.md"
+
+    fake = FakeClient(
+        session_entries=[
+            {"uri": session_uri, "name": "20260608_112942_6e2bee56", "isDir": True},
+        ],
+        recursive_entries={
+            session_uri: [
+                {"uri": archived_messages_uri, "name": "history/archive_001/messages.jsonl", "isDir": False},
+            ],
+        },
+        content_map={
+            archived_messages_uri: (
+                '{"role":"assistant","role_id":"rosie","parts":[{"type":"text","text":"我重新確認了 session 與 role_id 的對應。"}],"created_at":"2026-06-08T04:19:31Z"}\n'
+            )
+        },
+    )
+    monkeypatch.setattr(diary_tool, "_make_client", lambda: fake)
+
+    class DummyResponse:
+        class Choice:
+            class Message:
+                content = "# 2026-06-08\n\n今天我重新確認了 session 與 role_id 的對應。"
+
+            message = Message()
+
+        choices = [Choice()]
+
+    monkeypatch.setattr(diary_tool, "call_llm", lambda **kwargs: DummyResponse())
+    monkeypatch.setattr(diary_tool, "extract_content_or_reasoning", lambda response: response.choices[0].message.content)
+
+    result = json.loads(
+        diary_tool.openviking_diary_build_tool(
+            date="20260608",
+            role_id="rosie",
+            with_image=False,
+        )
+    )
+
+    assert result["created"] is True
+    assert result["matched_sessions"] == [session_uri]
+    assert result["matched_message_count"] == 1
+    assert result["content_uri"] == content_uri
+    assert "session 與 role_id 的對應" in fake._content_map[content_uri]

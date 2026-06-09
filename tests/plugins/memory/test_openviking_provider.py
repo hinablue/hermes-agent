@@ -285,6 +285,62 @@ def test_tool_add_resource_sends_git_remote_sources_as_path(url):
     })
 
 
+def test_viking_client_get_allows_timeout_override(monkeypatch):
+    client = _VikingClient(
+        "https://example.com",
+        api_key="test-key",
+        account="acct",
+        user="usr",
+        agent="hermes",
+    )
+    captured = {}
+
+    def capture_get(url, **kwargs):
+        captured["url"] = url
+        captured["timeout"] = kwargs.get("timeout")
+        return SimpleNamespace(
+            status_code=200,
+            text="",
+            json=lambda: {"status": "ok", "result": {"ok": True}},
+            raise_for_status=lambda: None,
+        )
+
+    monkeypatch.setattr(client._httpx, "get", capture_get)
+
+    client.get("/api/v1/fs/stat", timeout=123.0)
+    assert captured["url"] == "https://example.com/api/v1/fs/stat"
+    assert captured["timeout"] == 123.0
+
+
+def test_viking_client_post_allows_timeout_override(monkeypatch):
+    client = _VikingClient(
+        "https://example.com",
+        api_key="test-key",
+        account="acct",
+        user="usr",
+        agent="hermes",
+    )
+    captured = {}
+
+    def capture_post(url, **kwargs):
+        captured["url"] = url
+        captured["timeout"] = kwargs.get("timeout")
+        captured["json"] = kwargs.get("json")
+        return SimpleNamespace(
+            status_code=200,
+            text="",
+            json=lambda: {"status": "ok", "result": {"ok": True}},
+            raise_for_status=lambda: None,
+        )
+
+    monkeypatch.setattr(client._httpx, "post", capture_post)
+
+    client.post("/api/v1/content/write", {"uri": "viking://resources/demo.md"}, timeout=234.0)
+    assert captured["url"] == "https://example.com/api/v1/content/write"
+    assert captured["timeout"] == 234.0
+    assert captured["json"] == {"uri": "viking://resources/demo.md"}
+
+
 def test_viking_client_upload_temp_file_uses_multipart_identity_headers(tmp_path, monkeypatch):
     sample = tmp_path / "sample.md"
     sample.write_text("# Local resource\n", encoding="utf-8")
@@ -308,8 +364,9 @@ def test_viking_client_upload_temp_file_uses_multipart_identity_headers(tmp_path
 
     monkeypatch.setattr(client._httpx, "post", capture_httpx_post)
 
-    assert client.upload_temp_file(sample) == "upload_sample.md"
+    assert client.upload_temp_file(sample, timeout=345.0) == "upload_sample.md"
 
+    assert captured_kwargs["timeout"] == 345.0
     assert "files" in captured_kwargs
     assert "json" not in captured_kwargs
     headers = captured_kwargs["headers"]
@@ -371,9 +428,11 @@ def test_viking_client_headers_send_tenant_when_default():
     assert headers["Authorization"] == "Bearer test-key"
 
 
-def test_viking_client_headers_send_tenant_when_empty_falls_back_to_default():
-    # Empty account/user strings fall back to "default" via the constructor.
+def test_viking_client_headers_send_tenant_when_empty_falls_back_to_default(monkeypatch):
+    # Empty account/user strings fall back to "default" when neither args nor env provide a value.
     # Headers are sent even for the default value — ROOT API keys need them.
+    monkeypatch.delenv("OPENVIKING_ACCOUNT", raising=False)
+    monkeypatch.delenv("OPENVIKING_USER", raising=False)
     client = _VikingClient(
         "https://example.com",
         api_key="",

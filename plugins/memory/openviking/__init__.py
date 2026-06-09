@@ -175,27 +175,40 @@ class _VikingClient:
             return {}
         return data
 
-    def get(self, path: str, **kwargs) -> dict:
+    def get(self, path: str, *, timeout: float | None = None, **kwargs) -> dict:
         resp = self._httpx.get(
-            self._url(path), headers=self._headers(), timeout=_TIMEOUT, **kwargs
+            self._url(path),
+            headers=self._headers(),
+            timeout=_TIMEOUT if timeout is None else timeout,
+            **kwargs,
         )
         return self._parse_response(resp)
 
-    def post(self, path: str, payload: dict = None, **kwargs) -> dict:
+    def post(
+        self,
+        path: str,
+        payload: dict[str, Any] | None = None,
+        *,
+        timeout: float | None = None,
+        **kwargs,
+    ) -> dict:
         resp = self._httpx.post(
-            self._url(path), json=payload or {}, headers=self._headers(),
-            timeout=_TIMEOUT, **kwargs
+            self._url(path),
+            json=payload or {},
+            headers=self._headers(),
+            timeout=_TIMEOUT if timeout is None else timeout,
+            **kwargs,
         )
         return self._parse_response(resp)
 
-    def upload_temp_file(self, file_path: Path) -> str:
+    def upload_temp_file(self, file_path: Path, *, timeout: float | None = None) -> str:
         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
         with file_path.open("rb") as f:
             resp = self._httpx.post(
                 self._url("/api/v1/resources/temp_upload"),
                 files={"file": (file_path.name, f, mime_type)},
                 headers=self._multipart_headers(),
-                timeout=_TIMEOUT,
+                timeout=_TIMEOUT if timeout is None else timeout,
             )
         data = self._parse_response(resp)
         result = data.get("result", {})

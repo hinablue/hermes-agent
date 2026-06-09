@@ -497,9 +497,10 @@ def _generate_diary_markdown(*, date: str, role_id: str, assistant_role: str, ma
         f"{source_material}"
     )
     response = call_llm(
+        task="openviking_diary_build",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.6,
-        max_tokens=1200,
+        temperature=0.5,
+        max_tokens=4096,
         timeout=120,
     )
     text = extract_content_or_reasoning(response).strip()
@@ -526,9 +527,10 @@ def _generate_image_prompt(*, date: str, role_id: str, diary_markdown: str) -> s
         f"日記：\n{diary_markdown[:MAX_IMAGE_PROMPT_CHARS]}"
     )
     response = call_llm(
+        task="openviking_diary_build",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.5,
-        max_tokens=220,
+        temperature=0.7,
+        max_tokens=400,
         timeout=90,
     )
     text = extract_content_or_reasoning(response).strip()

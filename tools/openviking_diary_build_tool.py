@@ -174,6 +174,37 @@ def _exists(client: _VikingClient, uri: str) -> bool:
     return _stat(client, uri) is not None
 
 
+def _is_file(client: _VikingClient, uri: str) -> bool:
+    stat = _stat(client, uri)
+    return bool(stat) and not _entry_is_dir(stat)
+
+
+def _delete_uri(client: _VikingClient, uri: str, *, recursive: bool = True) -> Dict[str, Any]:
+    delete_fn = getattr(client, "delete", None)
+    if callable(delete_fn):
+        raw = delete_fn("/api/v1/fs", params={"uri": uri, "recursive": recursive})
+        result = _unwrap_result(raw)
+        return result if isinstance(result, dict) else {}
+
+    httpx_client = getattr(client, "_httpx", None)
+    url_builder = getattr(client, "_url", None)
+    headers_builder = getattr(client, "_headers", None)
+    parse_response = getattr(client, "_parse_response", None)
+    if not httpx_client or not callable(url_builder) or not callable(headers_builder) or not callable(parse_response):
+        raise RuntimeError("OpenViking client does not support delete operations")
+
+    response = httpx_client.request(
+        "DELETE",
+        url_builder("/api/v1/fs"),
+        headers=headers_builder(),
+        params={"uri": uri, "recursive": recursive},
+        timeout=30.0,
+    )
+    raw = parse_response(response)
+    result = _unwrap_result(raw)
+    return result if isinstance(result, dict) else {}
+
+
 def _mkdir(client: _VikingClient, uri: str) -> None:
     if _exists(client, uri):
         return
@@ -191,10 +222,22 @@ def _read_content(client: _VikingClient, uri: str) -> str:
 
 
 def _write_content(client: _VikingClient, uri: str, content: str, *, mode: str = "replace") -> Dict[str, Any]:
-    raw = client.post(
-        "/api/v1/content/write",
-        {"uri": uri, "content": content, "mode": mode, "wait": True},
-    )
+    requested_mode = mode
+    if mode == "replace" and not _exists(client, uri):
+        requested_mode = "create"
+    try:
+        raw = client.post(
+            "/api/v1/content/write",
+            {"uri": uri, "content": content, "mode": requested_mode, "wait": True},
+        )
+    except Exception as exc:
+        timed_out = "timed out" in str(exc).lower()
+        if timed_out and _is_file(client, uri):
+            verified = _read_content(client, uri)
+            if verified == content:
+                logger.warning("OpenViking content/write timed out but verified content exists at %s", uri)
+                return {"uri": uri, "timed_out_but_verified": True, "written_bytes": len(content)}
+        raise
     result = _unwrap_result(raw)
     return result if isinstance(result, dict) else {}
 
@@ -239,6 +282,45 @@ def _entry_is_dir(entry: Dict[str, Any]) -> bool:
     if "is_dir" in entry:
         return bool(entry.get("is_dir"))
     return str(entry.get("type") or "").lower() == "dir"
+
+
+def _list_markdown_files(client: _VikingClient, uri: str) -> List[str]:
+    entries = _ls_entries(client, uri, recursive=True)
+    matched = []
+    for entry in entries:
+        if _entry_is_dir(entry):
+            continue
+        child_uri = _entry_uri(entry)
+        if child_uri.lower().endswith(".md"):
+            matched.append(child_uri)
+    return sorted(set(matched))
+
+
+def _normalize_wrapped_markdown_target(client: _VikingClient, target_uri: str) -> Optional[str]:
+    stat = _stat(client, target_uri)
+    if not stat or not _entry_is_dir(stat):
+        return None
+
+    markdown_files = _list_markdown_files(client, target_uri)
+    if not markdown_files:
+        raise RuntimeError(
+            f"Target content URI is a directory, not a file, and contains no markdown to recover: {target_uri}"
+        )
+    if len(markdown_files) != 1:
+        raise RuntimeError(
+            f"Target content URI is a directory wrapper with multiple markdown files; refusing ambiguous auto-repair: {target_uri}"
+        )
+
+    nested_uri = markdown_files[0]
+    nested_content = _read_content(client, nested_uri)
+    if not nested_content.strip():
+        raise RuntimeError(f"Wrapped markdown target was empty and could not be normalized: {nested_uri}")
+
+    _delete_uri(client, target_uri, recursive=True)
+    _write_content(client, target_uri, nested_content, mode="create")
+    if not _is_file(client, target_uri):
+        raise RuntimeError(f"Failed to normalize wrapped markdown target into a file: {target_uri}")
+    return nested_uri
 
 
 def _collect_session_uris(client: _VikingClient, date: str) -> List[str]:
@@ -557,7 +639,11 @@ def openviking_diary_build_tool(
     image_dir_uri = uris["image_dir_uri"]
 
     try:
-        if skip_if_exists and _exists(client, content_uri):
+        normalized_from = None
+        if _exists(client, content_uri):
+            normalized_from = _normalize_wrapped_markdown_target(client, content_uri)
+
+        if skip_if_exists and _is_file(client, content_uri):
             return tool_result(
                 created=False,
                 date=date,
@@ -566,7 +652,8 @@ def openviking_diary_build_tool(
                 matched_message_count=0,
                 content_uri=content_uri,
                 image_uri=_discover_existing_image_uri(client, image_dir_uri),
-                reason="already_exists_skipped",
+                reason="already_exists_skipped" if not normalized_from else "already_exists_normalized",
+                normalized_from_uri=normalized_from,
             )
 
         matched_sessions, matches = _collect_matching_material(

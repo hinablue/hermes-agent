@@ -61,8 +61,9 @@ _SESSION_ID: ContextVar = ContextVar("HERMES_SESSION_ID", default=_UNSET)
 # private-chat topic (those lanes route only with thread id + reply anchor).
 _SESSION_MESSAGE_ID: ContextVar = ContextVar("HERMES_SESSION_MESSAGE_ID", default=_UNSET)
 
-# Cron auto-delivery vars — set per-job in run_job() so concurrent jobs
-# don't clobber each other's delivery targets.
+# Cron context + auto-delivery vars — set per-job in run_job() so concurrent
+# jobs don't clobber each other's approval/delivery state.
+_CRON_SESSION: ContextVar = ContextVar("HERMES_CRON_SESSION", default=_UNSET)
 _CRON_AUTO_DELIVER_PLATFORM: ContextVar = ContextVar("HERMES_CRON_AUTO_DELIVER_PLATFORM", default=_UNSET)
 _CRON_AUTO_DELIVER_CHAT_ID: ContextVar = ContextVar("HERMES_CRON_AUTO_DELIVER_CHAT_ID", default=_UNSET)
 _CRON_AUTO_DELIVER_THREAD_ID: ContextVar = ContextVar("HERMES_CRON_AUTO_DELIVER_THREAD_ID", default=_UNSET)
@@ -77,6 +78,7 @@ _VAR_MAP = {
     "HERMES_SESSION_KEY": _SESSION_KEY,
     "HERMES_SESSION_ID": _SESSION_ID,
     "HERMES_SESSION_MESSAGE_ID": _SESSION_MESSAGE_ID,
+    "HERMES_CRON_SESSION": _CRON_SESSION,
     "HERMES_CRON_AUTO_DELIVER_PLATFORM": _CRON_AUTO_DELIVER_PLATFORM,
     "HERMES_CRON_AUTO_DELIVER_CHAT_ID": _CRON_AUTO_DELIVER_CHAT_ID,
     "HERMES_CRON_AUTO_DELIVER_THREAD_ID": _CRON_AUTO_DELIVER_THREAD_ID,
@@ -109,6 +111,7 @@ def set_session_vars(
     session_id: str = "",
     message_id: str = "",
     cwd: str = "",
+    cron_session: Any = _UNSET,
 ) -> list:
     """Set all session context variables and return reset tokens.
 
@@ -131,6 +134,8 @@ def set_session_vars(
         _SESSION_ID.set(session_id),
         _SESSION_MESSAGE_ID.set(message_id),
     ]
+    if cron_session is not _UNSET:
+        tokens.append(_CRON_SESSION.set(cron_session))
     try:
         from agent.runtime_cwd import set_session_cwd
 
@@ -161,6 +166,7 @@ def clear_session_vars(tokens: list) -> None:
         _SESSION_KEY,
         _SESSION_ID,
         _SESSION_MESSAGE_ID,
+        _CRON_SESSION,
     ):
         var.set("")
     try:

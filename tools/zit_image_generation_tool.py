@@ -29,7 +29,7 @@ COMFY_CLOUD_HOST = "https://cloud.comfy.org"
 MAX_SEED = 1_125_899_906_842_624
 DEFAULT_WIDTH = 1024
 DEFAULT_HEIGHT = 1024
-ROSIE_PROMPT_PREFIX = "A young asian woman rosie_hsu, "
+ROSIE_PROMPT_PREFIX = "This is a image about rosie_hsu, "
 VALID_WORKFLOWS = {"rosie", "general"}
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp", ".gif"}
 

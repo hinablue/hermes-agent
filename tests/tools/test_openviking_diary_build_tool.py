@@ -89,7 +89,7 @@ class FakeClient:
         self._recursive_entries.pop(uri, None)
         return {"result": {"uri": uri, "deleted": sorted(to_remove)}}
 
-    def upload_temp_file(self, file_path):
+    def upload_temp_file(self, file_path, *, timeout=None) -> str:
         raise AssertionError("upload_temp_file should not run in these tests")
 
 
@@ -400,3 +400,47 @@ def test_write_content_accepts_verified_timeout_after_retry(monkeypatch):
     assert result["verification_attempts"] == 6
     assert fake.post_timeouts == [diary_tool.DIARY_WRITE_TIMEOUT_SECONDS]
     assert fake._content_map[content_uri].startswith("# 2026-06-07")
+
+
+def test_upload_image_uses_explicit_timeout_and_recovers_timeout(monkeypatch, tmp_path):
+    class TimeoutImageUploadClient(FakeClient):
+        def __init__(self, image_dir_uri):
+            super().__init__(existing={image_dir_uri}, dir_uris={image_dir_uri}, recursive_entries={image_dir_uri: []})
+            self.image_dir_uri = image_dir_uri
+            self.upload_timeouts = []
+            self.resource_timeouts = []
+            self.temp_file_id = "temp_upload_123"
+            self.wrapper_dir_uri = f"{image_dir_uri}/upload_abc123_png"
+            self.nested_file_uri = f"{self.wrapper_dir_uri}/upload_abc123.png"
+
+        def upload_temp_file(self, file_path, *, timeout=None):
+            self.upload_timeouts.append(timeout)
+            return self.temp_file_id
+
+        def post(self, path, payload=None, **kwargs):
+            if path == "/api/v1/resources":
+                self.resource_timeouts.append(kwargs.get("timeout"))
+                self._existing.update({self.wrapper_dir_uri, self.nested_file_uri})
+                self._dir_uris.add(self.wrapper_dir_uri)
+                self._content_map[self.nested_file_uri] = "binary-image-placeholder"
+                self._recursive_entries[self.image_dir_uri] = [
+                    {"uri": self.wrapper_dir_uri, "name": "upload_abc123_png", "isDir": True},
+                    {"uri": self.nested_file_uri, "name": "upload_abc123.png", "isDir": False},
+                ]
+                raise RuntimeError("timed out")
+            return super().post(path, payload, **kwargs)
+
+    monkeypatch.setattr(diary_tool.time, "sleep", lambda _seconds: None)
+
+    image_dir_uri = "viking://resources/diary/rosie_hsu/20260608/image"
+    fake = TimeoutImageUploadClient(image_dir_uri)
+    image_path = tmp_path / "diary.png"
+    image_path.write_bytes(b"fakepng")
+
+    final_uri = diary_tool._upload_image_to_openviking(fake, image_path=image_path, image_dir_uri=image_dir_uri)  # type: ignore[arg-type]
+
+    assert final_uri == f"{image_dir_uri}/upload_abc123.png"
+    assert fake.upload_timeouts == [diary_tool.IMAGE_UPLOAD_TIMEOUT_SECONDS]
+    assert fake.resource_timeouts == [diary_tool.IMAGE_UPLOAD_TIMEOUT_SECONDS]
+    assert fake.mv_calls == [{"from_uri": fake.nested_file_uri, "to_uri": final_uri}]
+    assert final_uri in fake._existing

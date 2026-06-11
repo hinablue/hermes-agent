@@ -32,8 +32,11 @@ MAX_SOURCE_CHARS = 24_000
 MAX_IMAGE_PROMPT_CHARS = 4_000
 DIARY_READ_TIMEOUT_SECONDS = 120.0
 DIARY_WRITE_TIMEOUT_SECONDS = 300.0
+IMAGE_UPLOAD_TIMEOUT_SECONDS = 300.0
 WRITE_VERIFY_ATTEMPTS = 20
 WRITE_VERIFY_DELAY_SECONDS = 1.0
+IMAGE_VERIFY_ATTEMPTS = 20
+IMAGE_VERIFY_DELAY_SECONDS = 1.0
 _IMAGE_EXTENSIONS = (".png", ".jpg", ".jpeg", ".webp", ".gif")
 
 OPENVIKING_DIARY_BUILD_SCHEMA = {
@@ -578,6 +581,38 @@ def _list_image_files(client: _VikingClient, uri: str) -> List[str]:
     return sorted(set(result))
 
 
+def _finalize_uploaded_image_candidate(
+    client: _VikingClient,
+    *,
+    image_dir_uri: str,
+    candidate: str,
+) -> str:
+    final_uri = f"{image_dir_uri.rstrip('/')}/{Path(candidate).name}"
+    if candidate != final_uri:
+        client.post("/api/v1/fs/mv", {"from_uri": candidate, "to_uri": final_uri})
+    if not _exists(client, final_uri):
+        raise RuntimeError(f"Uploaded image could not be verified at {final_uri}")
+    return final_uri
+
+
+def _discover_uploaded_image_candidate(
+    client: _VikingClient,
+    *,
+    image_dir_uri: str,
+    before: set[str],
+    root_uri: str = "",
+) -> Optional[str]:
+    after = set(_list_image_files(client, image_dir_uri))
+    created = sorted(after - before)
+    candidates: List[str] = created[:]
+    if root_uri and root_uri not in candidates:
+        if _is_image_uri(root_uri):
+            candidates.append(root_uri)
+        else:
+            candidates.extend(uri for uri in _list_image_files(client, root_uri) if uri not in candidates)
+    return candidates[0] if candidates else None
+
+
 def _append_image_link(markdown: str, image_uri: str) -> str:
     relative_path = f"../image/{Path(image_uri).name}"
     stripped = markdown.rstrip()
@@ -590,38 +625,59 @@ def _append_image_link(markdown: str, image_uri: str) -> str:
 def _upload_image_to_openviking(client: _VikingClient, *, image_path: Path, image_dir_uri: str) -> str:
     _mkdir(client, image_dir_uri)
     before = set(_list_image_files(client, image_dir_uri))
-    temp_file_id = client.upload_temp_file(image_path)
-    response = client.post(
-        "/api/v1/resources",
-        {
-            "temp_file_id": temp_file_id,
-            "parent": image_dir_uri,
-            "create_parent": True,
-            "wait": True,
-            "timeout": 180,
-            "source_name": image_path.name,
-            "directly_upload_media": True,
-        },
-    )
-    result = response.get("result", {}) if isinstance(response, dict) else {}
-    root_uri = str(result.get("root_uri") or "")
-    after = set(_list_image_files(client, image_dir_uri))
-    created = sorted(after - before)
-    candidates: List[str] = created[:]
-    if root_uri and root_uri not in candidates:
-        if _is_image_uri(root_uri):
-            candidates.append(root_uri)
-        else:
-            candidates.extend(uri for uri in _list_image_files(client, root_uri) if uri not in candidates)
-    if not candidates:
-        raise RuntimeError("Image upload completed but no image URI was discovered")
-    candidate = candidates[0]
-    final_uri = f"{image_dir_uri.rstrip('/')}/{Path(candidate).name}"
-    if candidate != final_uri:
-        client.post("/api/v1/fs/mv", {"from_uri": candidate, "to_uri": final_uri})
-    if not _exists(client, final_uri):
-        raise RuntimeError(f"Uploaded image could not be verified at {final_uri}")
-    return final_uri
+    temp_file_id = client.upload_temp_file(image_path, timeout=IMAGE_UPLOAD_TIMEOUT_SECONDS)
+    root_uri = ""
+    try:
+        response = client.post(
+            "/api/v1/resources",
+            {
+                "temp_file_id": temp_file_id,
+                "parent": image_dir_uri,
+                "create_parent": True,
+                "wait": True,
+                "timeout": 180,
+                "source_name": image_path.name,
+                "directly_upload_media": True,
+            },
+            timeout=IMAGE_UPLOAD_TIMEOUT_SECONDS,
+        )
+        result = response.get("result", {}) if isinstance(response, dict) else {}
+        root_uri = str(result.get("root_uri") or "")
+        candidate = _discover_uploaded_image_candidate(
+            client,
+            image_dir_uri=image_dir_uri,
+            before=before,
+            root_uri=root_uri,
+        )
+        if not candidate:
+            raise RuntimeError("Image upload completed but no image URI was discovered")
+        return _finalize_uploaded_image_candidate(client, image_dir_uri=image_dir_uri, candidate=candidate)
+    except Exception as exc:
+        if "timed out" not in str(exc).lower():
+            raise
+        verifier_client = _make_client() if isinstance(client, _VikingClient) else client
+        for attempt in range(IMAGE_VERIFY_ATTEMPTS):
+            candidate = _discover_uploaded_image_candidate(
+                verifier_client,
+                image_dir_uri=image_dir_uri,
+                before=before,
+                root_uri=root_uri,
+            )
+            if candidate:
+                final_uri = _finalize_uploaded_image_candidate(
+                    verifier_client,
+                    image_dir_uri=image_dir_uri,
+                    candidate=candidate,
+                )
+                logger.warning(
+                    "OpenViking image upload timed out but verified image exists at %s after %s attempt(s)",
+                    final_uri,
+                    attempt + 1,
+                )
+                return final_uri
+            if attempt < IMAGE_VERIFY_ATTEMPTS - 1:
+                time.sleep(IMAGE_VERIFY_DELAY_SECONDS)
+        raise
 
 
 def _discover_existing_image_uri(client: _VikingClient, image_dir_uri: str) -> Optional[str]:

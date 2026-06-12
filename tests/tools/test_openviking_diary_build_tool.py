@@ -444,3 +444,75 @@ def test_upload_image_uses_explicit_timeout_and_recovers_timeout(monkeypatch, tm
     assert fake.resource_timeouts == [diary_tool.IMAGE_UPLOAD_TIMEOUT_SECONDS]
     assert fake.mv_calls == [{"from_uri": fake.nested_file_uri, "to_uri": final_uri}]
     assert final_uri in fake._existing
+
+
+def test_build_returns_success_with_warning_when_readback_times_out_but_written_file_exists(monkeypatch):
+    session_uri = "viking://session/20260611_000001_abcd"
+    messages_uri = f"{session_uri}/messages.jsonl"
+    content_uri = "viking://resources/diary/rosie_hsu/20260611/content/content.md"
+    content_dir = "viking://resources/diary/rosie_hsu/20260611/content"
+
+    fake = FakeClient(
+        existing={content_dir},
+        session_entries=[
+            {"uri": session_uri, "name": "20260611_000001_abcd", "isDir": True},
+        ],
+        recursive_entries={
+            session_uri: [
+                {"uri": messages_uri, "name": "messages.jsonl", "isDir": False},
+            ],
+        },
+        content_map={
+            messages_uri: '{"role":"assistant","role_id":"rosie","content":"今天把 timeout 假失敗又追了一遍。"}\n',
+        },
+    )
+    monkeypatch.setattr(diary_tool, "_make_client", lambda: fake)
+
+    class DummyResponse:
+        class Choice:
+            class Message:
+                content = "# 2026-06-11\n\n今天把 timeout 假失敗又追了一遍。"
+
+            message = Message()
+
+        choices = [Choice()]
+
+    monkeypatch.setattr(diary_tool, "call_llm", lambda **kwargs: DummyResponse())
+    monkeypatch.setattr(diary_tool, "extract_content_or_reasoning", lambda response: response.choices[0].message.content)
+
+    def fake_write_content(client, uri, content, mode="replace"):
+        fake._existing.add(uri)
+        fake._dir_uris.discard(uri)
+        fake._content_map[uri] = content + "\n"
+        return {
+            "uri": uri,
+            "timed_out_but_verified": True,
+            "verification_attempts": 3,
+            "written_bytes": len(content),
+        }
+
+    monkeypatch.setattr(diary_tool, "_write_content", fake_write_content)
+
+    original_read_content = diary_tool._read_content
+
+    def flaky_read_content(client, uri, *, timeout=diary_tool.DIARY_READ_TIMEOUT_SECONDS):
+        if uri == content_uri:
+            raise RuntimeError("timed out")
+        return original_read_content(client, uri, timeout=timeout)
+
+    monkeypatch.setattr(diary_tool, "_read_content", flaky_read_content)
+
+    result = json.loads(
+        diary_tool.openviking_diary_build_tool(
+            date="20260611",
+            role_id="rosie",
+            with_image=False,
+            skip_if_exists=False,
+        )
+    )
+
+    assert result["created"] is True
+    assert result["content_uri"] == content_uri
+    assert result["warning"] == "content_write_timeout_verified"
+    assert result["warning_details"]["timed_out_but_verified"] is True
+    assert result["warning_details"]["verification_attempts"] == 3

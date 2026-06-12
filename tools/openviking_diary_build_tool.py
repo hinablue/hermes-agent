@@ -229,6 +229,10 @@ def _read_content(client: _VikingClient, uri: str, *, timeout: float = DIARY_REA
     return ""
 
 
+def _is_timeout_error(exc: Exception) -> bool:
+    return "timed out" in str(exc).lower()
+
+
 def _write_content(client: _VikingClient, uri: str, content: str, *, mode: str = "replace") -> Dict[str, Any]:
     requested_mode = mode
     if mode == "replace" and not _exists(client, uri):
@@ -240,8 +244,7 @@ def _write_content(client: _VikingClient, uri: str, content: str, *, mode: str =
             timeout=DIARY_WRITE_TIMEOUT_SECONDS,
         )
     except Exception as exc:
-        timed_out = "timed out" in str(exc).lower()
-        if timed_out:
+        if _is_timeout_error(exc):
             verifier_client = _make_client() if isinstance(client, _VikingClient) else client
             for attempt in range(WRITE_VERIFY_ATTEMPTS):
                 if _is_file(verifier_client, uri):
@@ -653,7 +656,7 @@ def _upload_image_to_openviking(client: _VikingClient, *, image_path: Path, imag
             raise RuntimeError("Image upload completed but no image URI was discovered")
         return _finalize_uploaded_image_candidate(client, image_dir_uri=image_dir_uri, candidate=candidate)
     except Exception as exc:
-        if "timed out" not in str(exc).lower():
+        if not _is_timeout_error(exc):
             raise
         verifier_client = _make_client() if isinstance(client, _VikingClient) else client
         for attempt in range(IMAGE_VERIFY_ATTEMPTS):
@@ -776,9 +779,28 @@ def openviking_diary_build_tool(
                 image_error = str(exc)
                 reason = "image_failed"
 
-        _write_content(client, content_uri, markdown, mode="replace")
-        verified_markdown = _read_content(client, content_uri)
-        if not verified_markdown.strip():
+        write_result = _write_content(client, content_uri, markdown, mode="replace")
+        warning = None
+        warning_details: Optional[Dict[str, Any]] = None
+        if write_result.get("timed_out_but_verified"):
+            warning = "content_write_timeout_verified"
+            warning_details = dict(write_result)
+
+        verified_markdown = ""
+        try:
+            verified_markdown = _read_content(client, content_uri)
+        except Exception as exc:
+            if not _is_timeout_error(exc) or not _is_file(client, content_uri):
+                raise
+            logger.warning("OpenViking diary readback timed out but file exists at %s", content_uri)
+            if warning is None:
+                warning = "content_readback_timeout_file_exists"
+                warning_details = {"uri": content_uri, "readback_timed_out": True}
+            elif warning_details is not None:
+                warning_details = dict(warning_details)
+                warning_details["readback_timed_out"] = True
+
+        if not verified_markdown.strip() and not _is_file(client, content_uri):
             raise RuntimeError(f"Diary write verification failed for {content_uri}")
         if image_uri and not _exists(client, image_uri):
             raise RuntimeError(f"Image verification failed for {image_uri}")
@@ -793,6 +815,10 @@ def openviking_diary_build_tool(
             "image_uri": image_uri,
             "reason": reason,
         }
+        if warning:
+            payload["warning"] = warning
+        if warning_details:
+            payload["warning_details"] = warning_details
         if image_error:
             payload["image_error"] = image_error
         return tool_result(payload)

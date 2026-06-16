@@ -1,0 +1,129 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "2127ZImageAsianUtopian_v36TurboFFV.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "載入擴散模型"
+    }
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "ae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "載入 VAE"
+    }
+  },
+  "8": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative Prompt"
+    }
+  },
+  "9": {
+    "inputs": {
+      "seed": 1125899906842624,
+      "steps": 8,
+      "cfg": 1,
+      "sampler_name": "er_sde",
+      "scheduler": "bong_tangent",
+      "denoise": 1,
+      "model": [
+        "1",
+        0
+      ],
+      "positive": [
+        "39",
+        0
+      ],
+      "negative": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "10": {
+    "inputs": {
+      "width": 1024,
+      "height": 1536,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "11": {
+    "inputs": {
+      "samples": [
+        "9",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE 解碼"
+    }
+  },
+  "12": {
+    "inputs": {
+      "filename_prefix": "2026-05-28/zit",
+      "images": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "儲存圖片"
+    }
+  },
+  "37": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "載入 CLIP"
+    }
+  },
+  "39": {
+    "inputs": {
+      "system_prompt": "alignment",
+      "user_prompt": "A young woman with long brown hair reclines on a crumpled white sheet, propped up on her elbow. The composition focuses on her facial expression and calico cat - a vibrant and relaxed pose that conveys a frank sensuality and refreshing beauty.",
+      "clip": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncodeLumina2",
+    "_meta": {
+      "title": "CLIP 文本編碼（Lumina2）"
+    }
+  }
+}

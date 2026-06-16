@@ -1,0 +1,143 @@
+{
+  "1": {
+    "inputs": {
+      "unet_name": "z_image_turbo_bf16.safetensors",
+      "weight_dtype": "default"
+    },
+    "class_type": "UNETLoader",
+    "_meta": {
+      "title": "載入擴散模型"
+    }
+  },
+  "4": {
+    "inputs": {
+      "vae_name": "UltraFlux-v1.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "載入 VAE"
+    }
+  },
+  "5": {
+    "inputs": {
+      "lora_name": "hinablue__hinaMix__hina_zImageTurbo_rosie_v1.safetensors",
+      "strength_model": 0.7,
+      "model": [
+        "1",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
+    }
+  },
+  "8": {
+    "inputs": {
+      "text": "",
+      "clip": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "Negative Prompt"
+    }
+  },
+  "9": {
+    "inputs": {
+      "seed": 957297162658210,
+      "steps": 7,
+      "cfg": 1,
+      "sampler_name": "er_sde",
+      "scheduler": "sgm_uniform",
+      "denoise": 1,
+      "model": [
+        "5",
+        0
+      ],
+      "positive": [
+        "39",
+        0
+      ],
+      "negative": [
+        "8",
+        0
+      ],
+      "latent_image": [
+        "10",
+        0
+      ]
+    },
+    "class_type": "KSampler",
+    "_meta": {
+      "title": "KSampler"
+    }
+  },
+  "10": {
+    "inputs": {
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptySD3LatentImage",
+    "_meta": {
+      "title": "EmptySD3LatentImage"
+    }
+  },
+  "11": {
+    "inputs": {
+      "samples": [
+        "9",
+        0
+      ],
+      "vae": [
+        "4",
+        0
+      ]
+    },
+    "class_type": "VAEDecode",
+    "_meta": {
+      "title": "VAE 解碼"
+    }
+  },
+  "12": {
+    "inputs": {
+      "filename_prefix": "agent/zit",
+      "images": [
+        "11",
+        0
+      ]
+    },
+    "class_type": "SaveImage",
+    "_meta": {
+      "title": "儲存圖片"
+    }
+  },
+  "37": {
+    "inputs": {
+      "clip_name": "qwen_3_4b.safetensors",
+      "type": "lumina2",
+      "device": "default"
+    },
+    "class_type": "CLIPLoader",
+    "_meta": {
+      "title": "載入 CLIP"
+    }
+  },
+  "39": {
+    "inputs": {
+      "system_prompt": "superior",
+      "user_prompt": "A woman with dark, tousled hair reclines in a white woven hammock suspended over a weathered wooden deck, wearing an oversized soft white T-shirt that drapes naturally over her body. Sunlight filters through overhead foliage, casting dappled shadows across the deck and illuminating her skin with soft, natural highlights. The hammock's frayed edges and coarse texture contrast with the relaxed fabric and the rustic wood grain, while the background reveals a rustic wooden structure with faded green paint and softly blurred outdoor elements. Her gaze is direct and calm, meeting the viewer's eyes with a serene, unguarded expression. The composition emphasizes the interplay of light and shadow, organic textures, and the quiet intimacy of the scene. The overall aesthetic is naturalistic, with a slightly cool, blue-tinged color cast that enhances the tranquil, sun-drenched atmosphere. Fully clothed, no nudity, no text in the image.",
+      "clip": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncodeLumina2",
+    "_meta": {
+      "title": "CLIP 文本編碼（Lumina2）"
+    }
+  }
+}

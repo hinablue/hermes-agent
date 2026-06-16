@@ -1,0 +1,173 @@
+{
+  "parameters": {
+    "filename_prefix": {
+      "node_id": "9",
+      "field": "filename_prefix",
+      "type": "string",
+      "value": "flux_krea",
+      "class_type": "SaveImage"
+    },
+    "clip_name1": {
+      "node_id": "200:63",
+      "field": "clip_name1",
+      "type": "string",
+      "value": "clip_l.safetensors",
+      "class_type": "DualCLIPLoader"
+    },
+    "clip_name2": {
+      "node_id": "200:63",
+      "field": "clip_name2",
+      "type": "string",
+      "value": "t5xxl_fp16.safetensors",
+      "class_type": "DualCLIPLoader"
+    },
+    "vae_name": {
+      "node_id": "200:64",
+      "field": "vae_name",
+      "type": "string",
+      "value": "ae.safetensors",
+      "class_type": "VAELoader"
+    },
+    "width": {
+      "node_id": "200:196",
+      "field": "width",
+      "type": "int",
+      "value": 1024,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "height": {
+      "node_id": "200:196",
+      "field": "height",
+      "type": "int",
+      "value": 1024,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "batch_size": {
+      "node_id": "200:196",
+      "field": "batch_size",
+      "type": "int",
+      "value": 1,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "seed": {
+      "node_id": "200:197",
+      "field": "seed",
+      "type": "int",
+      "value": 385262971231465,
+      "class_type": "KSampler"
+    },
+    "steps": {
+      "node_id": "200:197",
+      "field": "steps",
+      "type": "int",
+      "value": 20,
+      "class_type": "KSampler"
+    },
+    "cfg": {
+      "node_id": "200:197",
+      "field": "cfg",
+      "type": "int",
+      "value": 1,
+      "class_type": "KSampler"
+    },
+    "sampler_name": {
+      "node_id": "200:197",
+      "field": "sampler_name",
+      "type": "string",
+      "value": "euler",
+      "class_type": "KSampler"
+    },
+    "scheduler": {
+      "node_id": "200:197",
+      "field": "scheduler",
+      "type": "string",
+      "value": "simple",
+      "class_type": "KSampler"
+    },
+    "denoise": {
+      "node_id": "200:197",
+      "field": "denoise",
+      "type": "int",
+      "value": 1,
+      "class_type": "KSampler"
+    },
+    "unet_name": {
+      "node_id": "200:65",
+      "field": "unet_name",
+      "type": "string",
+      "value": "flux1-krea-dev_fp8_scaled.safetensors",
+      "class_type": "UNETLoader"
+    },
+    "lora_name": {
+      "node_id": "200:201",
+      "field": "lora_name",
+      "type": "string",
+      "value": "hinaFluxKreaAsianMix_v195.safetensors",
+      "class_type": "LoraLoaderModelOnly"
+    },
+    "lora_strength": {
+      "node_id": "200:201",
+      "field": "strength_model",
+      "type": "float",
+      "value": 0.8,
+      "class_type": "LoraLoaderModelOnly"
+    },
+    "prompt": {
+      "node_id": "200:195",
+      "field": "text",
+      "type": "string",
+      "value": "This photograph captures a young East Asian woman with a slender build and fair skin, seated on a white, textured surface that resembles a soft, crumpled fabric. She has long, straight black hair that falls over her shoulders, framing her delicate, oval-shaped face. Her expression is neutral, with slightly parted lips and soft brown eyes that gaze directly at the camera. She is wearing a strapless white top that reveals her collarbones and a small portion of her cleavage, paired with a short, dark blue skirt. Her legs are crossed, and she is wearing knee-high white socks with a ribbed texture, adding a casual yet slightly provocative touch to her outfit. Around her neck is a simple gold chain necklace with a small pendant. The background is minimalistic, with light streaming in, casting a soft glow on her skin. The overall mood of the photograph is serene and intimate, emphasizing the subject's natural beauty and relaxed pose.",
+      "class_type": "CLIPTextEncode"
+    }
+  },
+  "output_nodes": [
+    "9"
+  ],
+  "model_dependencies": [
+    {
+      "node_id": "200:63",
+      "class_type": "DualCLIPLoader",
+      "field": "clip_name1",
+      "value": "clip_l.safetensors",
+      "folder": "clip"
+    },
+    {
+      "node_id": "200:63",
+      "class_type": "DualCLIPLoader",
+      "field": "clip_name2",
+      "value": "t5xxl_fp16.safetensors",
+      "folder": "clip"
+    },
+    {
+      "node_id": "200:64",
+      "class_type": "VAELoader",
+      "field": "vae_name",
+      "value": "ae.safetensors",
+      "folder": "vae"
+    },
+    {
+      "node_id": "200:65",
+      "class_type": "UNETLoader",
+      "field": "unet_name",
+      "value": "flux1-krea-dev_fp8_scaled.safetensors",
+      "folder": "unet"
+    },
+    {
+      "node_id": "200:201",
+      "class_type": "LoraLoaderModelOnly",
+      "field": "lora_name",
+      "value": "hinaFluxKreaAsianMix_v195.safetensors",
+      "folder": "loras"
+    }
+  ],
+  "embedding_dependencies": [],
+  "summary": {
+    "parameter_count": 17,
+    "output_node_count": 1,
+    "model_dep_count": 5,
+    "embedding_dep_count": 0,
+    "has_negative_prompt": false,
+    "has_seed": true,
+    "is_video_workflow": false
+  }
+}

@@ -1,0 +1,31 @@
+{
+  "id": "general",
+  "label": "General-purpose workflow",
+  "purpose": "Use for image requests that are not about Rosie and do not include Rosie in the requested image.",
+  "default": true,
+  "selection_rule": "Choose this workflow for ordinary image generation unless the user explicitly specifies Rosie or the image clearly involves Rosie.",
+  "aliases": ["general"],
+  "applies_when": [
+    "The image request is unrelated to Rosie.",
+    "The request is a general person, object, scene, or concept image."
+  ],
+  "does_not_apply_when": [
+    "The user explicitly asks for Rosie.",
+    "Rosie is meant to appear in the requested image."
+  ],
+  "runtime_args": [
+    "prompt",
+    "width",
+    "height",
+    "seed"
+  ],
+  "defaults": {
+    "width": 1024,
+    "height": 1024
+  },
+  "seed_policy": {
+    "mode": "random-int",
+    "min": 0,
+    "max": 1125899906842624
+  }
+}

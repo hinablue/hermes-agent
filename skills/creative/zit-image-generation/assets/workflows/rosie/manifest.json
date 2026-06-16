@@ -1,0 +1,31 @@
+{
+  "id": "rosie",
+  "label": "Rosie-specific workflow",
+  "purpose": "Use for images or photos that are explicitly about Rosie or where Rosie appears in the image.",
+  "default": false,
+  "selection_rule": "Choose this workflow whenever the requested image is about Rosie, depicts Rosie, or explicitly includes Rosie in the scene.",
+  "aliases": ["rosie", "Rosie", "許御琪", "御琪", "小琪"],
+  "applies_when": [
+    "The user explicitly asks for Rosie-related images.",
+    "The main subject of the image is Rosie.",
+    "Rosie is explicitly present in the requested scene."
+  ],
+  "does_not_apply_when": [
+    "The image request is general and unrelated to Rosie."
+  ],
+  "runtime_args": [
+    "user_prompt",
+    "width",
+    "height",
+    "seed"
+  ],
+  "defaults": {
+    "width": 1024,
+    "height": 1024
+  },
+  "seed_policy": {
+    "mode": "random-int",
+    "min": 0,
+    "max": 1125899906842624
+  }
+}

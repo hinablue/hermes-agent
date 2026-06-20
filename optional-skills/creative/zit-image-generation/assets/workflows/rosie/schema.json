@@ -14,46 +14,50 @@
       "value": "UltraFlux-v1.safetensors",
       "class_type": "VAELoader"
     },
-    "lora_name": {
+    "lora_name_5": {
       "node_id": "5",
       "field": "lora_name",
       "type": "string",
       "value": "hinablue__hinaMix__hina_zImageTurbo_rosie_v1.safetensors",
-      "class_type": "LoraLoaderModelOnly"
+      "class_type": "LoraLoaderModelOnly",
+      "alias_of": "lora_name"
     },
-    "lora_strength": {
+    "lora_name_43": {
+      "node_id": "43",
+      "field": "lora_name",
+      "type": "string",
+      "value": "hinablue__hinaMix__hina_ZImageTurbo_rosie_v2.safetensors",
+      "class_type": "LoraLoaderModelOnly",
+      "alias_of": "lora_name"
+    },
+    "lora_strength_5": {
       "node_id": "5",
       "field": "strength_model",
       "type": "float",
+      "value": 0.2,
+      "class_type": "LoraLoaderModelOnly",
+      "alias_of": "lora_strength"
+    },
+    "lora_strength_43": {
+      "node_id": "43",
+      "field": "strength_model",
+      "type": "float",
       "value": 0.8,
-      "class_type": "LoraLoaderModelOnly"
-    },
-    "user_prompt": {
-      "node_id": "39",
-      "field": "user_prompt",
-      "type": "string",
-      "value": "A woman with dark, tousled hair reclines in a white woven hammock suspended over a weathered wooden deck, wearing an oversized soft white T-shirt that drapes naturally over her body. Sunlight filters through overhead foliage, casting dappled shadows across the deck and illuminating her skin with soft, natural highlights. The hammock's frayed edges and coarse texture contrast with the relaxed fabric and the rustic wood grain, while the background reveals a rustic wooden structure softened by distance and shade.",
-      "class_type": "CLIPTextEncodeLumina2"
-    },
-    "negative_prompt": {
-      "node_id": "8",
-      "field": "text",
-      "type": "string",
-      "value": "",
-      "class_type": "CLIPTextEncode"
+      "class_type": "LoraLoaderModelOnly",
+      "alias_of": "lora_strength"
     },
     "seed": {
       "node_id": "9",
       "field": "seed",
       "type": "int",
-      "value": 957297162658210,
+      "value": 774719694951308,
       "class_type": "KSampler"
     },
     "steps": {
       "node_id": "9",
       "field": "steps",
       "type": "int",
-      "value": 7,
+      "value": 8,
       "class_type": "KSampler"
     },
     "cfg": {
@@ -74,7 +78,7 @@
       "node_id": "9",
       "field": "scheduler",
       "type": "string",
-      "value": "sgm_uniform",
+      "value": "bong_tangent",
       "class_type": "KSampler"
     },
     "denoise": {
@@ -109,7 +113,7 @@
       "node_id": "12",
       "field": "filename_prefix",
       "type": "string",
-      "value": "2026-05-24/zit",
+      "value": "agent/rosie",
       "class_type": "SaveImage"
     },
     "clip_name": {
@@ -118,6 +122,13 @@
       "type": "string",
       "value": "qwen_3_4b.safetensors",
       "class_type": "CLIPLoader"
+    },
+    "user_prompt": {
+      "node_id": "39",
+      "field": "user_prompt",
+      "type": "string",
+      "value": "A woman with dark, tousled hair reclines in a white woven hammock suspended over a weathered wooden deck, wearing an oversized soft white T-shirt that drapes naturally over her body. Sunlight filters through overhead foliage, casting dappled shadows across the deck and illuminating her skin with soft, natural highlights. The hammock's frayed edges and coarse texture contrast with the relaxed fabric and the rustic wood grain, while the background reveals a rustic wooden structure softened by distance and shade.",
+      "class_type": "CLIPTextEncodeLumina2"
     }
   },
   "output_nodes": [
@@ -142,7 +153,7 @@
       "node_id": "5",
       "class_type": "LoraLoaderModelOnly",
       "field": "lora_name",
-      "value": "hinablue__hinaMix__hina_ZImageTurbo_hinaMix_v1.safetensors",
+      "value": "hinablue__hinaMix__hina_zImageTurbo_rosie_v1.safetensors",
       "folder": "loras"
     },
     {
@@ -151,15 +162,22 @@
       "field": "clip_name",
       "value": "qwen_3_4b.safetensors",
       "folder": "clip"
+    },
+    {
+      "node_id": "43",
+      "class_type": "LoraLoaderModelOnly",
+      "field": "lora_name",
+      "value": "hinablue__hinaMix__hina_ZImageTurbo_rosie_v2-5k.safetensors",
+      "folder": "loras"
     }
   ],
   "embedding_dependencies": [],
   "summary": {
     "parameter_count": 17,
     "output_node_count": 1,
-    "model_dep_count": 4,
+    "model_dep_count": 5,
     "embedding_dep_count": 0,
-    "has_negative_prompt": true,
+    "has_negative_prompt": false,
     "has_seed": true,
     "is_video_workflow": false
   }

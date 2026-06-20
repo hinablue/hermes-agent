@@ -10,3 +10,7 @@ Session learning from a Rosie-related lifestyle image request (oversized top, ly
   - image quality: obvious anatomy, hands/limbs, face, and clothing issues;
   - deliverability: final image is the cached file intended for `MEDIA:` attachment.
 - If the visual QA passes, final reply can stay concise: completion note + `MEDIA:` attachment + workflow/prompt_id/seed/size/prompt summary. Do not paste the full English prompt unless the user asks.
+
+### Multi-element anatomy safeguard (2026-06-18)
+- When the prompt stacks 3+ physical elements (e.g., twin tails + bow clip + bikini + hammock + pose), plain text prompts frequently produce extra limbs/hands even with "normal human anatomy" mentioned inline.
+- Use `prompt_json` mode with `camera.avoid` and `camera.requirements` fields for anatomy-critical multi-element prompts. See `references/prompting_techniques.md` §1b for the decision rule.

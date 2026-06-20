@@ -151,11 +151,13 @@ metadata:
 
 參考文件：
 - `references/workflow-catalog.md`
-- `references/prompting_techniques.md` — A/B testing results and technical findings for optimal prompting (JSON vs Plain Text, Aspect Ratios, Compositional tips).
+- `references/prompting_techniques.md` — A/B testing results and technical findings for optimal prompting (JSON vs Plain Text, Aspect Ratios, Compositional tips, POV water splash, iterative follow-up refinement).
 - `references/media-delivery-cache.md` — 生成成功但 Discord/平台沒收到附件時，檢查 MEDIA cache 與 gateway allow roots 的交付排查流程。
 - `references/tool-call-integration.md` — 將此 skill 流程升級為 Hermes tool call 或 image_gen provider plugin 時的建議架構與不可變 assets 保護規則。
 - `references/music-video-storyboard-pipeline.md` — 把歌詞擴成 MV 分鏡包：scene-level storyboard、4-up still prompts、實際音檔重切時間碼、shot timeline、lyric cues、以及 Kling / LTX-2.3 專用 video prompt sheets。
 - `references/fixed-seed-identity-convergence.md` — 當 Rosie 大批次分鏡圖五官飄太開時，如何用單一固定 seed 對既有 manifest 做整批重生、保留備份、產出 progress/results log，並用 contact sheet 判斷是否真的收斂。
+- `references/session-20260618-beach-series.md` — 2026-06-18 海邊潑水系列：漸進式姿勢升級、prompt_json 直接輸入 zit_image_generate、人體結構安全字段、水花飛濺到鏡頭的 POV 男友視角技巧。
+- `references/prompt-length-experiment-20260618.md` — 2026-06-18 字數實驗：固定 seed 17415，比較 100/200/400/500/700/1000 字，最佳區間 200-700 字，最甜點 400-500 字。
 - `references/daily-dream-cron-jobs.md` — 每日夢境圖這類排程內容任務：先寫定稿、用程式精確驗證字數/字元數、再抽成視覺錨點出圖，並在首輪漏掉關鍵道具或稍微過度性感時做 targeted second pass。
 
 不要把整份 workflow JSON 直接塞進 `SKILL.md`。
@@ -268,7 +270,9 @@ Hina 的偏好流程已明確收斂為：
 
 因此，在這個技能的執行流程中，**把使用者需求整理成 `prompt_json` 是 caller / agent 的責任，不是 tool 的內建自動轉換功能**。做 Hermes code review 或除錯時，不要把 schema 說明、skill 規則、與 code-level 實作混為一談。
 
-只有在沒有 `prompt_json` 支援、或使用者明確要求自由文字 prompt 時，才退回舊流程：把中文需求轉寫／翻譯成約 **200–400 words** 的英文 prompt。Rosie 相關照片尤其要把人物成年設定、台灣／台北氛圍、服裝、姿勢、光線、情緒與安全邊界寫清楚。
+只有在沒有 `prompt_json` 支援、或使用者明確要求自由文字 prompt 時，才退回舊流程：把中文需求轉寫／翻譯成約 **200–400 words** 的英文 prompt。若是需要更強控制的 plain-text fallback，可參考 `references/prompt-length-experiment-20260618.md`：實測可用區間約 200–700 字，400–500 字常是甜點。Rosie 相關照片尤其要把人物成年設定、台灣／台北氛圍、服裝、姿勢、光線、情緒與安全邊界寫清楚。
+
+**重要：不要在 prompt 中寫負面提示詞**（例如 `no extra limbs`、`only two hands`、`normal human anatomy`、`no extra hands` 等）。這些負面提示詞常會被模型當成生成指令，反而導致更多變形。正確做法是用簡潔正面的描述，只說「要什麼」，不說「不要什麼」；如果仍出現變形，應優先換 seed、簡化元素堆疊、調整 prompt 寫法或改用更適合的結構化輸入。
 
 英文 key JSON 的最小模板見 `templates/prompt-json-minimal-template.json`。
 
@@ -457,8 +461,11 @@ Use this fallback only when the runtime tool is unavailable.
 - 「由上往下俯拍」→ 強化高角度視點、抬頭看鏡頭、臉肩更突出、腿部自然透視縮短。
 - 「更撒嬌感一點」→ 不要用性化字眼去推 prompt 或 QA；改寫成中性的可視化調整，例如更柔和的抬頭感、微歪頭、肩膀略向內收、表情更親近、嘴角更柔、整體互動感更強，並維持 clearly adult 的描述。
 - 「依照這個版本來製作」這種指代前一張圖的 follow-up，要先判斷使用者是在延續**視覺錨點**（服裝、場景、色調、情緒）還是連同**拍攝語法**一起沿用。若前一版是前鏡頭自拍，但這次語氣更像要做「同一味道的正式照片／特地挑給人看的版本」，就保留服裝、海邊、色調、表情方向，並在 prompt 裡明確改寫成 portrait / curated beach photo / not a selfie，避免被前一輪的自拍語法綁死。
-- 若 follow-up 是補一個**明確服裝細節**（例如「套裝要配黑絲襪」「加眼鏡」「改成馬尾」）而不是整體重做，優先把它當成同一張圖的小幅 wardrobe / styling 變體：保留前一張的主體、場景、交通工具、構圖與情緒，直接把新增服裝或造型元素硬寫進 prompt，並優先沿用前一張 seed。這類需求的重點不是重抽一張新圖，而是讓新增元素在既有視覺錨點上變得清楚可見。
+- 若 follow-up 是補一個**明確服裝細節**（例如「套裝要配黑絲襪」「加眼鏡」「改成馬尾」「雪紡紗洋裝怎麼樣」）而不是整體重做，優先把它當成同一張圖的小幅 wardrobe / styling 變體：保留前一張的主體、場景、交通工具、構圖與情緒，直接把新增服裝或造型元素硬寫進 prompt，並優先沿用前一張 seed。這類需求的重點不是重抽一張新圖，而是讓新增元素在既有視覺錨點上變得清楚可見。
+- 在和 Hina 的日常 Discord 對話裡，這類服裝／造型 follow-up 常會被包成輕鬆的問句（例如「雪紡紗洋裝怎麼樣？」）。若上下文明顯是在延續剛生成的同一張圖，應把它視為**直接要求你立刻生成變體**，不要只停在聊天式回覆或再問一次是否要出圖。
 - 若 follow-up 不是在加服裝或姿勢，而是在加**情緒密度**（例如「用剛才那種情緒很滿的感覺描述自己」），不要把曖昧或情感對話原句直接平鋪到 prompt 裡。先把抽象情緒拆成可視化錨點：時間段（blue hour / 深夜 / 清晨）、空間（窗邊、公寓、車內、旅館、街燈下）、表情（疲憊但放鬆、眼神柔軟、像剛鬆一口氣）、造型（居家針織、襯衫、開衫、簡單飾品）、小道具（茶杯、檯燈、窗外城市燈光）與鏡頭語法（self-portrait / candid / handheld）。這樣比較能把『情緒很滿』落成照片，而不是只生成空泛的文青句子。
+- 若使用者貼了一張**前一次生成的成品圖**，並要求「同種子、同提示詞，只改一個變因」來比較攝影師／模型差異，優先把它當成**受控 A/B 變體實驗**，而不是一般重畫：先從圖片 metadata 抽出原始 seed 與 prompt（PNG 通常可從 `prompt` 欄位讀到 ComfyUI workflow 與 KSampler seed），確認原圖的實際 seed、prompt 與尺寸，再只改使用者指定的單一欄位（例如 `hair`、`glasses`、`dress color`）。回覆時要明說這次是『同 seed、同 prompt、只改一個變因』，方便使用者判讀結果。
+- 做這種 controlled comparison 時，若原圖 metadata 顯示的是比你記憶中更準確的 seed / prompt，**以圖片 metadata 為準**，不要只依賴聊天裡先前回報過的摘要或你自己記得的 prompt 簡述。
 - 成人泳裝／海邊寫真如果還要疊加「更萌」「更甜」「更害羞」「更撒嬌」這類 follow-up，優先把需求翻成姿態、眼神、構圖、色調、旅拍氛圍等中性視覺語言，再做生成與 QA，避免把檢查問題寫成吸引力或年齡模糊的判斷題。
 
 ## User-Facing Reply Rules

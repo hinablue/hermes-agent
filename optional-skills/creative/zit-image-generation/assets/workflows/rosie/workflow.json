@@ -21,7 +21,7 @@
   "5": {
     "inputs": {
       "lora_name": "hinablue__hinaMix__hina_zImageTurbo_rosie_v1.safetensors",
-      "strength_model": 0.7,
+      "strength_model": 0.2,
       "model": [
         "1",
         0
@@ -32,29 +32,16 @@
       "title": "LoraLoaderModelOnly"
     }
   },
-  "8": {
-    "inputs": {
-      "text": "",
-      "clip": [
-        "37",
-        0
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Negative Prompt"
-    }
-  },
   "9": {
     "inputs": {
-      "seed": 957297162658210,
-      "steps": 7,
+      "seed": 774719694951308,
+      "steps": 8,
       "cfg": 1,
       "sampler_name": "er_sde",
-      "scheduler": "sgm_uniform",
+      "scheduler": "bong_tangent",
       "denoise": 1,
       "model": [
-        "5",
+        "43",
         0
       ],
       "positive": [
@@ -62,7 +49,7 @@
         0
       ],
       "negative": [
-        "8",
+        "42",
         0
       ],
       "latent_image": [
@@ -104,7 +91,7 @@
   },
   "12": {
     "inputs": {
-      "filename_prefix": "agent/zit",
+      "filename_prefix": "rosie",
       "images": [
         "11",
         0
@@ -128,8 +115,8 @@
   },
   "39": {
     "inputs": {
-      "system_prompt": "superior",
-      "user_prompt": "A woman with dark, tousled hair reclines in a white woven hammock suspended over a weathered wooden deck, wearing an oversized soft white T-shirt that drapes naturally over her body. Sunlight filters through overhead foliage, casting dappled shadows across the deck and illuminating her skin with soft, natural highlights. The hammock's frayed edges and coarse texture contrast with the relaxed fabric and the rustic wood grain, while the background reveals a rustic wooden structure with faded green paint and softly blurred outdoor elements. Her gaze is direct and calm, meeting the viewer's eyes with a serene, unguarded expression. The composition emphasizes the interplay of light and shadow, organic textures, and the quiet intimacy of the scene. The overall aesthetic is naturalistic, with a slightly cool, blue-tinged color cast that enhances the tranquil, sun-drenched atmosphere. Fully clothed, no nudity, no text in the image.",
+      "system_prompt": "alignment",
+      "user_prompt": "A young Japanese schoolgirl sits alone on a worn wooden classroom floor, hugging her knees. She wears the standard uniform: crisp white short-sleeved shirt tucked into a dark navy pleated skirt, paired with clean low-top canvas sneakers. Her shoulder-length brown hair frames her face as she gazes directly at the viewer with a quiet, melancholic expression. The room is empty except for rows of vintage wooden desks and chairs receding into soft focus toward a blackboard at the far end. Natural light streams through tall multi-pane windows along one wall, casting long shadows and illuminating dust motes in the air. The composition uses leading lines from floorboards to draw attention inward; shallow depth of field isolates the subject while blurring background elements. Textures include smooth fabric, matte wood grain scuffed by use, and subtle skin tones under diffused daylight. Mood is introspective — nostalgic yet solitary; cinematic color grading enhances contrast between warm wood tones and cool shadows. No text or logos present — pure visual storytelling through composition, lighting texture emotion convergence typical of fine art photography.",
       "clip": [
         "37",
         0
@@ -138,6 +125,32 @@
     "class_type": "CLIPTextEncodeLumina2",
     "_meta": {
       "title": "CLIP 文本編碼（Lumina2）"
+    }
+  },
+  "42": {
+    "inputs": {
+      "conditioning": [
+        "39",
+        0
+      ]
+    },
+    "class_type": "ConditioningZeroOut",
+    "_meta": {
+      "title": "條件設定（歸零）"
+    }
+  },
+  "43": {
+    "inputs": {
+      "lora_name": "hinablue__hinaMix__hina_ZImageTurbo_rosie_v2-5k.safetensors",
+      "strength_model": 0.8,
+      "model": [
+        "5",
+        0
+      ]
+    },
+    "class_type": "LoraLoaderModelOnly",
+    "_meta": {
+      "title": "LoraLoaderModelOnly"
     }
   }
 }

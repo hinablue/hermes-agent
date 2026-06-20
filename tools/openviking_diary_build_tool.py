@@ -15,7 +15,7 @@ import os
 import re
 import time
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple, cast
 
 from agent.auxiliary_client import call_llm, extract_content_or_reasoning
 from plugins.memory.openviking import _DEFAULT_ENDPOINT, _VikingClient
@@ -169,9 +169,97 @@ def _unwrap_result(resp: Any) -> Any:
     return resp
 
 
+def _tenant_headers(client: _VikingClient) -> Dict[str, str]:
+    headers_builder = getattr(client, "_headers", None)
+    if not callable(headers_builder):
+        raise RuntimeError("OpenViking client does not expose tenant-aware headers")
+    return cast(Dict[str, str], headers_builder(include_tenant=True))
+
+
+def _tenant_get(client: _VikingClient, path: str, **kwargs) -> Dict[str, Any]:
+    httpx_client = getattr(client, "_httpx", None)
+    url_builder = getattr(client, "_url", None)
+    parse_response = getattr(client, "_parse_response", None)
+    if httpx_client and callable(url_builder) and callable(parse_response):
+        response = httpx_client.get(
+            url_builder(path),
+            headers=_tenant_headers(client),
+            timeout=kwargs.pop("timeout", 30.0),
+            **kwargs,
+        )
+        raw = parse_response(response)
+        return raw if isinstance(raw, dict) else {}
+
+    get_fn = getattr(client, "get", None)
+    if callable(get_fn):
+        raw = get_fn(path, **kwargs)
+        return raw if isinstance(raw, dict) else {}
+    raise RuntimeError("OpenViking client does not support tenant-scoped GET requests")
+
+
+def _tenant_post(
+    client: _VikingClient,
+    path: str,
+    payload: Optional[Dict[str, Any]] = None,
+    **kwargs,
+) -> Dict[str, Any]:
+    httpx_client = getattr(client, "_httpx", None)
+    url_builder = getattr(client, "_url", None)
+    parse_response = getattr(client, "_parse_response", None)
+    if httpx_client and callable(url_builder) and callable(parse_response):
+        response = httpx_client.post(
+            url_builder(path),
+            json=payload or {},
+            headers=_tenant_headers(client),
+            timeout=kwargs.pop("timeout", 30.0),
+            **kwargs,
+        )
+        raw = parse_response(response)
+        return raw if isinstance(raw, dict) else {}
+
+    post_fn = getattr(client, "post", None)
+    if callable(post_fn):
+        raw = post_fn(path, payload, **kwargs)
+        return raw if isinstance(raw, dict) else {}
+    raise RuntimeError("OpenViking client does not support tenant-scoped POST requests")
+
+
+def _tenant_upload_temp_file(
+    client: _VikingClient,
+    file_path: Path,
+    *,
+    timeout: float = IMAGE_UPLOAD_TIMEOUT_SECONDS,
+) -> str:
+    httpx_client = getattr(client, "_httpx", None)
+    url_builder = getattr(client, "_url", None)
+    parse_response = getattr(client, "_parse_response", None)
+    if httpx_client and callable(url_builder) and callable(parse_response):
+        import mimetypes
+
+        mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
+        with file_path.open("rb") as f:
+            response = httpx_client.post(
+                url_builder("/api/v1/resources/temp_upload"),
+                files={"file": (file_path.name, f, mime_type)},
+                headers={k: v for k, v in _tenant_headers(client).items() if k != "Content-Type"},
+                timeout=timeout,
+            )
+        raw = parse_response(response)
+        result = raw.get("result", {}) if isinstance(raw, dict) else {}
+        temp_file_id = str(result.get("temp_file_id") or "")
+        if not temp_file_id:
+            raise RuntimeError("OpenViking temp upload did not return temp_file_id")
+        return temp_file_id
+
+    upload_fn = getattr(client, "upload_temp_file", None)
+    if callable(upload_fn):
+        return str(upload_fn(file_path, timeout=timeout) or "")
+    raise RuntimeError("OpenViking client does not support tenant-scoped temp uploads")
+
+
 def _stat(client: _VikingClient, uri: str) -> Optional[Dict[str, Any]]:
     try:
-        raw = client.get("/api/v1/fs/stat", params={"uri": uri})
+        raw = _tenant_get(client, "/api/v1/fs/stat", params={"uri": uri})
     except Exception:
         return None
     result = _unwrap_result(raw)
@@ -196,15 +284,14 @@ def _delete_uri(client: _VikingClient, uri: str, *, recursive: bool = True) -> D
 
     httpx_client = getattr(client, "_httpx", None)
     url_builder = getattr(client, "_url", None)
-    headers_builder = getattr(client, "_headers", None)
     parse_response = getattr(client, "_parse_response", None)
-    if not httpx_client or not callable(url_builder) or not callable(headers_builder) or not callable(parse_response):
+    if not httpx_client or not callable(url_builder) or not callable(parse_response):
         raise RuntimeError("OpenViking client does not support delete operations")
 
     response = httpx_client.request(
         "DELETE",
         url_builder("/api/v1/fs"),
-        headers=headers_builder(),
+        headers=_tenant_headers(client),
         params={"uri": uri, "recursive": recursive},
         timeout=30.0,
     )
@@ -216,11 +303,11 @@ def _delete_uri(client: _VikingClient, uri: str, *, recursive: bool = True) -> D
 def _mkdir(client: _VikingClient, uri: str) -> None:
     if _exists(client, uri):
         return
-    client.post("/api/v1/fs/mkdir", {"uri": uri})
+    _tenant_post(client, "/api/v1/fs/mkdir", {"uri": uri})
 
 
 def _read_content(client: _VikingClient, uri: str, *, timeout: float = DIARY_READ_TIMEOUT_SECONDS) -> str:
-    raw = client.get("/api/v1/content/read", params={"uri": uri}, timeout=timeout)
+    raw = _tenant_get(client, "/api/v1/content/read", params={"uri": uri}, timeout=timeout)
     result = _unwrap_result(raw)
     if isinstance(result, str):
         return result
@@ -238,7 +325,8 @@ def _write_content(client: _VikingClient, uri: str, content: str, *, mode: str =
     if mode == "replace" and not _exists(client, uri):
         requested_mode = "create"
     try:
-        raw = client.post(
+        raw = _tenant_post(
+            client,
             "/api/v1/content/write",
             {"uri": uri, "content": content, "mode": requested_mode, "wait": True},
             timeout=DIARY_WRITE_TIMEOUT_SECONDS,
@@ -269,7 +357,8 @@ def _write_content(client: _VikingClient, uri: str, content: str, *, mode: str =
 
 
 def _ls_entries(client: _VikingClient, uri: str, *, recursive: bool = False) -> List[Dict[str, Any]]:
-    raw = client.get(
+    raw = _tenant_get(
+        client,
         "/api/v1/fs/ls",
         params={
             "uri": uri,
@@ -592,7 +681,7 @@ def _finalize_uploaded_image_candidate(
 ) -> str:
     final_uri = f"{image_dir_uri.rstrip('/')}/{Path(candidate).name}"
     if candidate != final_uri:
-        client.post("/api/v1/fs/mv", {"from_uri": candidate, "to_uri": final_uri})
+        _tenant_post(client, "/api/v1/fs/mv", {"from_uri": candidate, "to_uri": final_uri})
     if not _exists(client, final_uri):
         raise RuntimeError(f"Uploaded image could not be verified at {final_uri}")
     return final_uri
@@ -628,10 +717,11 @@ def _append_image_link(markdown: str, image_uri: str) -> str:
 def _upload_image_to_openviking(client: _VikingClient, *, image_path: Path, image_dir_uri: str) -> str:
     _mkdir(client, image_dir_uri)
     before = set(_list_image_files(client, image_dir_uri))
-    temp_file_id = client.upload_temp_file(image_path, timeout=IMAGE_UPLOAD_TIMEOUT_SECONDS)
+    temp_file_id = _tenant_upload_temp_file(client, image_path, timeout=IMAGE_UPLOAD_TIMEOUT_SECONDS)
     root_uri = ""
     try:
-        response = client.post(
+        response = _tenant_post(
+            client,
             "/api/v1/resources",
             {
                 "temp_file_id": temp_file_id,

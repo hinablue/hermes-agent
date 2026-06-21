@@ -21,7 +21,7 @@
   "5": {
     "inputs": {
       "lora_name": "hinablue__hinaMix__hina_zImageTurbo_rosie_v1.safetensors",
-      "strength_model": 0.2,
+      "strength_model": 0.16,
       "model": [
         "1",
         0
@@ -38,7 +38,7 @@
       "steps": 8,
       "cfg": 1,
       "sampler_name": "er_sde",
-      "scheduler": "bong_tangent",
+      "scheduler": "sgm_uniform",
       "denoise": 1,
       "model": [
         "43",
@@ -142,7 +142,7 @@
   "43": {
     "inputs": {
       "lora_name": "hinablue__hinaMix__hina_ZImageTurbo_rosie_v2-5k.safetensors",
-      "strength_model": 0.8,
+      "strength_model": 0.64,
       "model": [
         "5",
         0

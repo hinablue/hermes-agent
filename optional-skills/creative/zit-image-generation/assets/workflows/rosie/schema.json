@@ -34,7 +34,7 @@
       "node_id": "5",
       "field": "strength_model",
       "type": "float",
-      "value": 0.2,
+      "value": 0.16,
       "class_type": "LoraLoaderModelOnly",
       "alias_of": "lora_strength"
     },
@@ -42,7 +42,7 @@
       "node_id": "43",
       "field": "strength_model",
       "type": "float",
-      "value": 0.8,
+      "value": 0.64,
       "class_type": "LoraLoaderModelOnly",
       "alias_of": "lora_strength"
     },
@@ -78,7 +78,7 @@
       "node_id": "9",
       "field": "scheduler",
       "type": "string",
-      "value": "bong_tangent",
+      "value": "sgm_uniform",
       "class_type": "KSampler"
     },
     "denoise": {

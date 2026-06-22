@@ -211,6 +211,56 @@ def test_builds_markdown_for_matching_material(monkeypatch):
     assert "今天我整理了好多資料" in fake._content_map[content_uri]
 
 
+def test_builds_markdown_from_new_session_peer_id_payload(monkeypatch):
+    session_uri = "viking://session/20260621_212455_fccfc8"
+    messages_uri = f"{session_uri}/messages.jsonl"
+    content_uri = "viking://resources/diary/rosie_hsu/20260621/content/content.md"
+
+    fake = FakeClient(
+        session_entries=[
+            {"uri": session_uri, "name": "20260621_212455_fccfc8", "isDir": True},
+        ],
+        recursive_entries={
+            session_uri: [
+                {"uri": messages_uri, "name": "messages.jsonl", "isDir": False},
+            ],
+        },
+        content_map={
+            messages_uri: (
+                '{"role":"assistant","peer_id":"rosie","parts":[{"type":"tool","tool_name":"read_file","tool_output":"..."},{"type":"text","text":"今天我開始按新版本 session 結構整理 diary tool。"}],"created_at":"2026-06-21T13:52:23Z"}\n'
+                '{"role":"assistant","peer_id":"someone_else","parts":[{"type":"text","text":"這行不該被算進 rosie。"}],"created_at":"2026-06-21T13:52:24Z"}\n'
+            )
+        },
+    )
+    monkeypatch.setattr(diary_tool, "_make_client", lambda: fake)
+
+    class DummyResponse:
+        class Choice:
+            class Message:
+                content = "# 2026-06-21\n\n今天我開始按新版本 session 結構整理 diary tool。"
+
+            message = Message()
+
+        choices = [Choice()]
+
+    monkeypatch.setattr(diary_tool, "call_llm", lambda **kwargs: DummyResponse())
+    monkeypatch.setattr(diary_tool, "extract_content_or_reasoning", lambda response: response.choices[0].message.content)
+
+    result = json.loads(
+        diary_tool.openviking_diary_build_tool(
+            date="20260621",
+            role_id="rosie",
+            with_image=False,
+        )
+    )
+
+    assert result["created"] is True
+    assert result["matched_sessions"] == [session_uri]
+    assert result["matched_message_count"] == 1
+    assert result["content_uri"] == content_uri
+    assert "新版本 session 結構整理 diary tool" in fake._content_map[content_uri]
+
+
 def test_builds_markdown_from_archived_messages_with_parts_payload(monkeypatch):
     session_uri = "viking://session/20260608_112942_6e2bee56"
     archived_messages_uri = f"{session_uri}/history/archive_001/messages.jsonl"

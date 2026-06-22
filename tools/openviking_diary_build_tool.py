@@ -44,7 +44,8 @@ OPENVIKING_DIARY_BUILD_SCHEMA = {
     "description": (
         "Build a diary entry from OpenViking session logs for a specific date and role_id. "
         "The tool scans viking://session/<date>* recursively, keeps only exact JSONL matches "
-        "where role == assistant_role and role_id == the requested role_id, then writes the "
+        "where role == assistant_role and the assistant identity matches the requested role_id "
+        "via role_id (older archives) or peer_id (newer live sessions), then writes the "
         "resulting diary to OpenViking via HTTP API (content/write, fs/mkdir, fs/mv, fs/stat). "
         "If with_image=true, it also generates a matching image, uploads it through the OpenViking "
         "resource API, and appends the verified relative image link to the markdown."
@@ -501,6 +502,20 @@ def _normalize_message_content(value: Any) -> str:
         return str(value)
 
 
+def _message_identity_matches(item: Dict[str, Any], *, role_id: str) -> bool:
+    """Match assistant identity across old and new OpenViking session payloads.
+
+    Older archives store the assistant identity as `role_id`, while newer live
+    session JSONL stores it as `peer_id` on assistant messages.
+    """
+    message_role_id = str(item.get("role_id") or "").strip()
+    if message_role_id == role_id:
+        return True
+    message_peer_id = str(item.get("peer_id") or "").strip()
+    return message_peer_id == role_id
+
+
+
 def _parse_jsonl_messages(text: str, *, source_uri: str, assistant_role: str, role_id: str) -> List[Dict[str, Any]]:
     matches: List[Dict[str, Any]] = []
     for index, raw_line in enumerate((text or "").splitlines(), start=1):
@@ -512,7 +527,7 @@ def _parse_jsonl_messages(text: str, *, source_uri: str, assistant_role: str, ro
         except json.JSONDecodeError:
             logger.debug("Skipping invalid JSONL line %s:%s", source_uri, index)
             continue
-        if item.get("role") != assistant_role or item.get("role_id") != role_id:
+        if item.get("role") != assistant_role or not _message_identity_matches(item, role_id=role_id):
             continue
         content = _normalize_message_content(item.get("content"))
         if not content:

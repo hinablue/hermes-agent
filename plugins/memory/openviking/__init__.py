@@ -323,6 +323,8 @@ class _VikingClient:
             lambda headers: self._httpx.post(
                 self._url(path), json=payload or {}, headers=headers,
                 timeout=_TIMEOUT if timeout is None else timeout, **kwargs
+            )
+        )
 
     def upload_temp_file(self, file_path: Path, *, timeout: float | None = None) -> str:
         mime_type = mimetypes.guess_type(file_path.name)[0] or "application/octet-stream"
@@ -333,7 +335,6 @@ class _VikingClient:
                 headers=self._multipart_headers(),
                 timeout=_TIMEOUT if timeout is None else timeout,
             )
-        )
 
     def delete(self, path: str, **kwargs) -> dict:
         return self._send_with_trusted_identity_retry(

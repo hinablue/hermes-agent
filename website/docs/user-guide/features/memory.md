@@ -20,7 +20,13 @@ Two files make up the agent's memory:
 Both are stored in `~/.hermes/memories/` and are injected into the system prompt as a frozen snapshot at session start. The agent manages its own memory via the `memory` tool — it can add, replace, or remove entries.
 
 :::info
-Character limits keep memory focused. When memory is full, the agent consolidates or replaces entries to make room for new information.
+Character limits keep memory focused. Memory does **not** auto-compact: when a
+write would exceed the limit, the `memory` tool returns an error instead of
+silently dropping entries. The agent then makes room itself — consolidating or
+removing entries in the same turn before retrying (see [What Happens When Memory
+is Full](#what-happens-when-memory-is-full)). Note that `replace` is also bound
+by the limit: swapping an entry for a longer one can still overflow, so the new
+content must be shortened (or another entry removed) to fit.
 :::
 
 ## How Memory Appears in the System Prompt
@@ -209,21 +215,22 @@ memory:
   user_profile_enabled: true
   memory_char_limit: 2200   # ~800 tokens
   user_char_limit: 1375     # ~500 tokens
-  write_mode: on            # on | off | approve
+  write_approval: false     # false = write freely (default) | true = require approval
 ```
 
-## Controlling memory writes (`write_mode`)
+## Controlling memory writes (`write_approval`)
 
 By default the agent saves memory freely — including from the background
-self-improvement review that runs after a turn. If you'd rather not have
-memory written behind your back, `memory.write_mode` gives you three options
-(applied to **both** foreground turns and the background review):
+self-improvement review that runs after a turn. If you'd rather approve saves
+first, set `memory.write_approval: true`. It's a simple on/off gate applied to
+**both** foreground turns and the background review:
 
-| Mode | Behaviour |
-|------|-----------|
-| `on` | Write freely (default — current behaviour). |
-| `off` | Never write. The memory tool returns a clean "disabled" result; nothing is saved. |
-| `approve` | Don't commit writes — review them first. Foreground writes prompt you inline (entries are small enough to read in a chat bubble). Background-review writes are **staged** instead of committed (a background thread can't block on a prompt). |
+| `write_approval` | Behaviour |
+|------------------|-----------|
+| `false` (default) | Write freely — the gate is off (the pre-gate behaviour). |
+| `true` | Require approval before anything is saved. In the interactive CLI, foreground writes prompt you inline (entries are small enough to read in full). Everywhere else — messaging platforms, scripts, and the background self-improvement review — writes are **staged** for review with `/memory pending`. |
+
+> To turn memory off entirely (not just gate it), set `memory_enabled: false`.
 
 Review staged writes from the CLI or any messaging platform:
 
@@ -231,38 +238,89 @@ Review staged writes from the CLI or any messaging platform:
 /memory pending             # list staged memory writes (auto ones tagged [auto])
 /memory approve <id>        # apply one (or 'all')
 /memory reject <id>         # drop one (or 'all')
-/memory mode approve        # change write_mode and persist it
+/memory approval on         # turn the gate on (or 'off') and persist it
 ```
 
 This is the answer to "the agent saved a wrong assumption about me": set
-`write_mode: approve`, and every save — especially the unprompted background
+`write_approval: true`, and every save — especially the unprompted background
 ones — waits for your yes/no before it ever enters your profile.
 
-## Controlling skill writes (`skills.write_mode`)
+## Background review notifications (`display.memory_notifications`)
 
-Skills use the same three-state gate, but the review UX differs because a
+After a turn, the background self-improvement review may quietly save a memory
+or update a skill. This is Hermes' consent-aware learning loop: repeated
+corrections and durable workflow lessons become compact memory entries or
+procedural skills, while `write_approval` can stage those writes for review
+before they affect future sessions. By default it surfaces a short
+`💾 Memory updated` line in chat so you know it happened. Control how chatty
+that is:
+
+```yaml
+display:
+  memory_notifications: on    # off | on (default) | verbose
+```
+
+| Value | Behaviour |
+|-------|-----------|
+| `off` | No chat notification. The review still runs and still writes — you just don't see a line for it. |
+| `on` (default) | Generic line, e.g. `💾 Memory updated`, `💾 Skill 'foo' patched`. |
+| `verbose` | Includes a compact preview of what changed, e.g. `💾 Memory ➕ User prefers terse replies` or a `"old" → "new"` skill diff snippet. |
+
+> This only governs the **gateway** chat notification. The review itself, and
+> writes to your memory/skill stores, are unaffected by this setting. Set it
+> per-platform via `display.platforms.<platform>.memory_notifications`.
+
+## Running the review on a cheaper model (`auxiliary.background_review`)
+
+The review runs on your **main chat model** by default, replaying the
+conversation — which is already warm in the prompt cache, so it's cheap cache
+reads. On an expensive main model you can run the review on a cheaper model
+instead:
+
+```yaml
+auxiliary:
+  background_review:
+    provider: openrouter
+    model: google/gemini-3-flash-preview   # auto (default) = main chat model
+```
+
+When you point it at a model **different** from your main one, the review runs
+there for substantially lower cost (~3–5× in benchmarks). Because a different
+model can't reuse your main model's prompt cache anyway, the fork automatically
+replays a compact **digest** of the conversation (recent turns verbatim + a
+summary of older ones) rather than the full transcript — minimizing what it
+writes to the new cache. Capture holds: in testing, memory capture was
+identical and skill capture near-identical to the main-model review.
+
+Leave it at `auto` (or set it to your main model) and nothing changes — the
+review keeps running on the main model with the full warm-cache replay.
+
+## Controlling skill writes (`skills.write_approval`)
+
+Skills use the same on/off gate, but the review UX differs because a
 `SKILL.md` is far too large to read in a chat bubble:
 
 ```yaml
 skills:
-  write_mode: on            # on | off | approve
+  write_approval: false     # false = write freely (default) | true = require approval
 ```
 
-In `approve` mode, skill writes (create / edit / patch / write_file / delete)
-always **stage** regardless of origin. You review the one-line gist inline, but
-the full diff stays out-of-band:
+When `write_approval: true`, skill writes (create / edit / patch / write_file /
+delete) always **stage** regardless of origin. You review the one-line gist
+inline, but the full diff stays out-of-band:
 
 ```
 /skills pending             # list staged skill writes + a one-line gist each
 /skills diff <id>           # full unified diff (best viewed in CLI or dashboard)
 /skills approve <id>        # apply it (or 'all')
 /skills reject <id>         # drop it (or 'all')
-/skills mode approve        # change write_mode and persist it
+/skills approval on         # turn the gate on (or 'off') and persist it
 ```
 
 On a messaging platform, approve a skill from its gist + metadata, or open
 `/skills diff` on the CLI / dashboard / the staged file under
 `~/.hermes/pending/skills/<id>.json` when you want to read the whole change.
+Full details in [Gating agent skill writes](/user-guide/features/skills#gating-agent-skill-writes-skillswrite_approval).
 
 
 ## External Memory Providers

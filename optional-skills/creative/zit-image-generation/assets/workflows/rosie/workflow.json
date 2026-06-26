@@ -34,7 +34,7 @@
   },
   "9": {
     "inputs": {
-      "seed": 774719694951308,
+      "seed": 1056474807825864,
       "steps": 8,
       "cfg": 1,
       "sampler_name": "er_sde",
@@ -45,7 +45,7 @@
         0
       ],
       "positive": [
-        "39",
+        "44",
         0
       ],
       "negative": [
@@ -65,7 +65,7 @@
   "10": {
     "inputs": {
       "width": 1024,
-      "height": 1024,
+      "height": 1536,
       "batch_size": 1
     },
     "class_type": "EmptySD3LatentImage",
@@ -91,7 +91,7 @@
   },
   "12": {
     "inputs": {
-      "filename_prefix": "rosie",
+      "filename_prefix": "rosie_hsu",
       "images": [
         "11",
         0
@@ -113,24 +113,10 @@
       "title": "載入 CLIP"
     }
   },
-  "39": {
-    "inputs": {
-      "system_prompt": "alignment",
-      "user_prompt": "A young Japanese schoolgirl sits alone on a worn wooden classroom floor, hugging her knees. She wears the standard uniform: crisp white short-sleeved shirt tucked into a dark navy pleated skirt, paired with clean low-top canvas sneakers. Her shoulder-length brown hair frames her face as she gazes directly at the viewer with a quiet, melancholic expression. The room is empty except for rows of vintage wooden desks and chairs receding into soft focus toward a blackboard at the far end. Natural light streams through tall multi-pane windows along one wall, casting long shadows and illuminating dust motes in the air. The composition uses leading lines from floorboards to draw attention inward; shallow depth of field isolates the subject while blurring background elements. Textures include smooth fabric, matte wood grain scuffed by use, and subtle skin tones under diffused daylight. Mood is introspective — nostalgic yet solitary; cinematic color grading enhances contrast between warm wood tones and cool shadows. No text or logos present — pure visual storytelling through composition, lighting texture emotion convergence typical of fine art photography.",
-      "clip": [
-        "37",
-        0
-      ]
-    },
-    "class_type": "CLIPTextEncodeLumina2",
-    "_meta": {
-      "title": "CLIP 文本編碼（Lumina2）"
-    }
-  },
   "42": {
     "inputs": {
       "conditioning": [
-        "39",
+        "44",
         0
       ]
     },
@@ -151,6 +137,19 @@
     "class_type": "LoraLoaderModelOnly",
     "_meta": {
       "title": "LoraLoaderModelOnly"
+    }
+  },
+  "44": {
+    "inputs": {
+      "text": "A high-quality POV selfie of Rosie, long wavy hair, lying on a messy bed surrounded by many fluffy and cute plushies.",
+      "clip": [
+        "37",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "User Prompt"
     }
   }
 }

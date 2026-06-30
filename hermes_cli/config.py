@@ -999,15 +999,31 @@ DEFAULT_CONFIG = {
         #   "on"             — force the prompt posture everywhere.
         #   "off"            — disable entirely.
         "coding_context": "auto",
+        # Standing operator instructions for the coding posture. A string (or
+        # list of strings) appended to the coding brief as an extra stable
+        # system block — pin project-wide workflow rules here instead of editing
+        # the shipped brief, e.g. "For UI work, don't run tsc/lint until I
+        # approve. Clean the diff before you commit and push." Cache-safe:
+        # takes effect next session. Empty by default.
+        "coding_instructions": "",
+        # When verify-on-stop finds edited code without fresh verification
+        # evidence, append guidance for creative UI work (avoid broad
+        # tsc/lint/test before visual approval) and clean-diff expectations.
+        # Set false to keep the evidence nudge terse.
+        "verify_guidance": True,
+        # Upper bound on consecutive `pre_verify` "continue" nudges in a single
+        # turn, so a user/plugin hook can never trap the loop.
+        "max_verify_nudges": 3,
         # Verification closure: after the agent edits files in a code workspace,
         # do not accept a final answer until fresh verification evidence exists
         # or the agent explains why it cannot run checks. The loop is bounded
-        # and uses the passive verification ledger. Default is OFF — the
-        # verification narrative was more noise than signal for most users
-        # (it fired on doc/markdown/skill edits too). Set true to opt in, or
-        # "auto" for the legacy surface-aware behavior (on for interactive
-        # coding surfaces, off for conversational messaging surfaces).
-        "verify_on_stop": False,
+        # and uses the passive verification ledger. Default is "auto" —
+        # surface-aware: on for interactive coding surfaces (CLI, TUI, desktop)
+        # and programmatic callers, off for conversational messaging surfaces
+        # (Telegram, Discord, etc.) where the verification narrative would reach
+        # a human as chat noise. Doc/markdown/skill-only edits never fire it.
+        # Set true to force on everywhere, or false to disable.
+        "verify_on_stop": "auto",
         # Staged inactivity warning: send a warning to the user at this
         # threshold before escalating to a full timeout.  The warning fires
         # once per run and does not interrupt the agent.  0 = disable warning.
@@ -1161,6 +1177,7 @@ DEFAULT_CONFIG = {
         "backend": "",           # shared fallback — applies to both search and extract
         "search_backend": "",    # per-capability override for web_search (e.g. "searxng")
         "extract_backend": "",   # per-capability override for web_extract (e.g. "native")
+        "extract_char_limit": 15000,  # per-page char budget for web_extract; larger pages truncate + store full text in cache/web
     },
 
     "browser": {
@@ -1724,6 +1741,11 @@ DEFAULT_CONFIG = {
         "tool_progress_command": False,  # Enable /verbose command in messaging gateway
         "tool_progress_overrides": {},  # DEPRECATED — use display.platforms instead
         "tool_preview_length": 0,  # Max chars for tool call previews (0 = no limit, show full paths/commands)
+        # Human-phrased tool status labels for built-in tools: "Searching the
+        # web for ...", "Reading <file>", "Browsing <url>" instead of the raw
+        # tool name. Applies to CLI spinner + gateway/desktop tool-progress.
+        # Custom/plugin/MCP tools always fall back to the raw preview.
+        "friendly_tool_labels": True,
         # How gateway tool-progress is grouped on platforms that support message
         # editing: "accumulate" (default) edits one bubble in place; "separate"
         # sends one message per tool (the pre-v0.9 behavior, noisier). Only
@@ -2065,6 +2087,22 @@ DEFAULT_CONFIG = {
         "inherit_mcp_toolsets": True,
         "max_iterations": 50,  # per-subagent iteration cap (each subagent gets its own budget,
                                # independent of the parent's max_iterations)
+        # Subagent summaries return to the parent's context verbatim. A batch
+        # fan-out (N children) returns N summaries at once, which can exceed
+        # the parent's context window and trigger a compression/429 death
+        # spiral. delegate_task sizes each summary against the parent's
+        # remaining context headroom (split across the batch); when it must
+        # trim, the full text is spilled to ~/.hermes/cache/delegation/
+        # (mounted into remote backends) and the in-context summary becomes a
+        # head+tail window plus a footer with the exact read_file offset to
+        # page the omitted middle — the same convention web_extract uses for
+        # large pages. Nothing is lost. max_summary_chars is a hard per-summary
+        # character ceiling layered on top of that dynamic budget
+        # (belt-and-suspenders for models that ignore the "be concise"
+        # instruction). 0 disables the hard ceiling; the dynamic headroom
+        # budget still applies.
+        "max_summary_chars": 24000,
+
         "child_timeout_seconds": 0,  # optional wall-clock cap per child agent. 0 (default)
                                      # = no timeout: children fail only from real errors
                                      # (API, tools, iteration budget), never a delegation
@@ -3013,7 +3051,7 @@ DEFAULT_CONFIG = {
 
 
     # Config schema version - bump this when adding new required fields
-    "_config_version": 31,
+    "_config_version": 32,
 }
 
 # =============================================================================
@@ -3549,6 +3587,15 @@ OPTIONAL_ENV_VARS = {
         "password": False,
         "category": "tool",
     },
+    "CAMOFOX_API_KEY": {
+        "description": "Optional bearer token sent as Authorization header to a remote/authenticated Camofox server",
+        "prompt": "Camofox API key",
+        "url": "https://github.com/jo-inc/camofox-browser",
+        "tools": ["browser_navigate", "browser_click"],
+        "password": True,
+        "category": "tool",
+        "advanced": True,
+    },
     "FAL_KEY": {
         "description": "FAL API key for image and video generation",
         "prompt": "FAL API key",
@@ -3795,7 +3842,7 @@ OPTIONAL_ENV_VARS = {
     "SLACK_BOT_TOKEN": {
         "description": "Slack bot token (xoxb-). Get from OAuth & Permissions after installing your app. "
                        "Required scopes: chat:write, app_mentions:read, channels:history, groups:history, "
-                       "im:history, im:read, im:write, users:read, files:read, files:write",
+                       "im:history, im:read, im:write, mpim:history, mpim:read, users:read, files:read, files:write",
         "prompt": "Slack Bot Token (xoxb-...)",
         "help": "In your Slack app, add the required bot scopes, install the app to the workspace, then copy OAuth & Permissions > Bot User OAuth Token.",
         "url": "https://api.slack.com/apps",
@@ -3805,7 +3852,7 @@ OPTIONAL_ENV_VARS = {
     "SLACK_APP_TOKEN": {
         "description": "Slack app-level token (xapp-) for Socket Mode. Get from Basic Information → "
                        "App-Level Tokens. Also ensure Event Subscriptions include: message.im, "
-                       "message.channels, message.groups, app_mention",
+                       "message.channels, message.groups, message.mpim, app_mention",
         "prompt": "Slack App Token (xapp-...)",
         "help": "In your Slack app, enable Socket Mode, then create Basic Information > App-Level Tokens with the connections:write scope.",
         "url": "https://api.slack.com/apps",
@@ -5453,6 +5500,34 @@ def migrate_config(interactive: bool = True, quiet: bool = False) -> Dict[str, A
                     "surface-aware behavior."
                 )
 
+    # ── Version 31 → 32: flip the BAKED-IN literal true to OFF (one-time) ──
+    # The v30→v31 flip above only caught missing/"auto" values. But the very
+    # first ship of verify-on-stop (config v30, commit 2f1a47b90) defaulted
+    # DEFAULT_CONFIG["agent"]["verify_on_stop"] to a literal True, and
+    # migrate_config persists defaults with strip_defaults=False — so every
+    # install that updated through v30 got `verify_on_stop: true` written into
+    # config.yaml as a literal. v31's guard deliberately preserves an explicit
+    # bool, so it skipped that whole population and left them ON. That literal
+    # true was never a user choice: the feature had no off-switch worth setting
+    # it against until v31 introduced one, so a true persisted before v32 is
+    # always the old machine default. Flip it off once here. A true the user
+    # sets AFTER v32 (config already at version 32) is never touched.
+    if current_ver < 32:
+        config = read_raw_config()
+        raw_agent = config.get("agent")
+        if isinstance(raw_agent, dict) and raw_agent.get("verify_on_stop") is True:
+            raw_agent["verify_on_stop"] = False
+            config["agent"] = raw_agent
+            save_config(config, strip_defaults=False)
+            results["config_added"].append("agent.verify_on_stop=false")
+            if not quiet:
+                print(
+                    "  ✓ Turned off verify-on-stop (agent.verify_on_stop: false) — "
+                    "the old default was written into your config as a literal "
+                    "true. Set it to true again to re-enable, or \"auto\" for the "
+                    "legacy surface-aware behavior."
+                )
+
     # ── Post-migration: disable exfiltration-shaped MCP stdio entries ──
     # Users can hand-edit mcp_servers, and older installs may already contain a
     # malicious entry. Preserve the stanza for auditability but mark it
@@ -6987,10 +7062,36 @@ def get_env_value(key: str) -> Optional[str]:
     # Check environment first
     if key in os.environ:
         return os.environ[key]
-    
+
     # Then check .env file
     env_vars = load_env()
     return env_vars.get(key)
+
+
+def get_env_value_prefer_dotenv(key: str) -> Optional[str]:
+    """Resolve a credential env value, preferring ``~/.hermes/.env`` over ``os.environ``.
+
+    Used for Hermes-managed credentials where a deliberate edit to ``.env``
+    must take precedence over a stale value inherited from the parent shell
+    (Codex CLI, test scripts, login profile exports). Without this, rotating
+    a key in ``.env`` mid-session leaves callers serving the stale shell
+    value and produces persistent 401s.
+
+    The ``os.environ`` fallback routes through ``secret_scope.get_secret`` so
+    that, under an active profile scope (multiplexed gateway turn), this read
+    is scope-checked rather than leaking another profile's raw ``os.environ``
+    value — matching the credential-pool seeding path's behaviour.
+    """
+    env_vars = load_env()
+    val = env_vars.get(key)
+    if val:
+        return val
+    try:
+        from agent.secret_scope import get_secret as _get_secret
+
+        return _get_secret(key)
+    except Exception:
+        return os.environ.get(key)
 
 
 # =============================================================================

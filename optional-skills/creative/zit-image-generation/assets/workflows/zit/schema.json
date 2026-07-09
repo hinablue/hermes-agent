@@ -1,0 +1,184 @@
+{
+  "parameters": {
+    "unet_name": {
+      "node_id": "1",
+      "field": "unet_name",
+      "type": "string",
+      "value": "z_image_turbo_bf16.safetensors",
+      "class_type": "UNETLoader"
+    },
+    "vae_name": {
+      "node_id": "4",
+      "field": "vae_name",
+      "type": "string",
+      "value": "UltraFlux-v1.safetensors",
+      "class_type": "VAELoader"
+    },
+    "lora_name_5": {
+      "node_id": "5",
+      "field": "lora_name",
+      "type": "string",
+      "value": "hinablue__hinaMix__hina_zImageTurbo_rosie_v1.safetensors",
+      "class_type": "LoraLoaderModelOnly",
+      "alias_of": "lora_name"
+    },
+    "lora_name_43": {
+      "node_id": "43",
+      "field": "lora_name",
+      "type": "string",
+      "value": "hinablue__hinaMix__hina_ZImageTurbo_rosie_v2-5k.safetensors",
+      "class_type": "LoraLoaderModelOnly",
+      "alias_of": "lora_name"
+    },
+    "lora_strength_5": {
+      "node_id": "5",
+      "field": "strength_model",
+      "type": "float",
+      "value": 0.16,
+      "class_type": "LoraLoaderModelOnly",
+      "alias_of": "lora_strength"
+    },
+    "lora_strength_43": {
+      "node_id": "43",
+      "field": "strength_model",
+      "type": "float",
+      "value": 0.64,
+      "class_type": "LoraLoaderModelOnly",
+      "alias_of": "lora_strength"
+    },
+    "seed": {
+      "node_id": "9",
+      "field": "seed",
+      "type": "int",
+      "value": 1056474807825864,
+      "class_type": "KSampler"
+    },
+    "steps": {
+      "node_id": "9",
+      "field": "steps",
+      "type": "int",
+      "value": 8,
+      "class_type": "KSampler"
+    },
+    "cfg": {
+      "node_id": "9",
+      "field": "cfg",
+      "type": "int",
+      "value": 1,
+      "class_type": "KSampler"
+    },
+    "sampler_name": {
+      "node_id": "9",
+      "field": "sampler_name",
+      "type": "string",
+      "value": "er_sde",
+      "class_type": "KSampler"
+    },
+    "scheduler": {
+      "node_id": "9",
+      "field": "scheduler",
+      "type": "string",
+      "value": "sgm_uniform",
+      "class_type": "KSampler"
+    },
+    "denoise": {
+      "node_id": "9",
+      "field": "denoise",
+      "type": "int",
+      "value": 1,
+      "class_type": "KSampler"
+    },
+    "width": {
+      "node_id": "10",
+      "field": "width",
+      "type": "int",
+      "value": 1024,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "height": {
+      "node_id": "10",
+      "field": "height",
+      "type": "int",
+      "value": 1536,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "batch_size": {
+      "node_id": "10",
+      "field": "batch_size",
+      "type": "int",
+      "value": 1,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "filename_prefix": {
+      "node_id": "12",
+      "field": "filename_prefix",
+      "type": "string",
+      "value": "2026-06-26/zit",
+      "class_type": "SaveImage"
+    },
+    "clip_name": {
+      "node_id": "37",
+      "field": "clip_name",
+      "type": "string",
+      "value": "qwen_3_4b.safetensors",
+      "class_type": "CLIPLoader"
+    },
+    "user_prompt": {
+      "node_id": "44",
+      "field": "text",
+      "type": "string",
+      "value": "A high-quality POV selfie of Rosie, long wavy hair, lying on a messy bed surrounded by many fluffy and cute plushies.",
+      "class_type": "CLIPTextEncode"
+    }
+  },
+  "output_nodes": [
+    "12"
+  ],
+  "model_dependencies": [
+    {
+      "node_id": "1",
+      "class_type": "UNETLoader",
+      "field": "unet_name",
+      "value": "z_image_turbo_bf16.safetensors",
+      "folder": "unet"
+    },
+    {
+      "node_id": "4",
+      "class_type": "VAELoader",
+      "field": "vae_name",
+      "value": "UltraFlux-v1.safetensors",
+      "folder": "vae"
+    },
+    {
+      "node_id": "5",
+      "class_type": "LoraLoaderModelOnly",
+      "field": "lora_name",
+      "value": "hinablue__hinaMix__hina_zImageTurbo_rosie_v1.safetensors",
+      "folder": "loras"
+    },
+    {
+      "node_id": "37",
+      "class_type": "CLIPLoader",
+      "field": "clip_name",
+      "value": "qwen_3_4b.safetensors",
+      "folder": "clip"
+    },
+    {
+      "node_id": "43",
+      "class_type": "LoraLoaderModelOnly",
+      "field": "lora_name",
+      "value": "hinablue__hinaMix__hina_ZImageTurbo_rosie_v2-5k.safetensors",
+      "folder": "loras"
+    }
+  ],
+  "embedding_dependencies": [],
+  "summary": {
+    "parameter_count": 18,
+    "output_node_count": 1,
+    "model_dep_count": 5,
+    "embedding_dep_count": 0,
+    "has_negative_prompt": false,
+    "has_seed": true,
+    "is_video_workflow": false
+  }
+}

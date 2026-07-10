@@ -1,0 +1,159 @@
+{
+  "parameters": {
+    "prompt": {
+      "node_id": "51",
+      "field": "text",
+      "type": "string",
+      "value": "The camera angle is low and slightly frontal. Use shallow depth of field, cinematic color grading, high dynamic range, soft contrast, realistic fabric texture, natural skin detail, elegant posing, and painterly realism. The background should remain minimal and dreamlike, with distant bokeh, misty atmosphere, and a serene twilight horizon. The final image should feel poetic, refined, emotionally charged, and visually symbolic, blending high-fashion photography with surreal fine-art aesthetics.",
+      "class_type": "CLIPTextEncode"
+    },
+    "unet_name": {
+      "node_id": "52",
+      "field": "unet_name",
+      "type": "string",
+      "value": "krea2_turbo_fp8_scaled.safetensors",
+      "class_type": "UNETLoader"
+    },
+    "clip_name": {
+      "node_id": "53",
+      "field": "clip_name",
+      "type": "string",
+      "value": "qwen3vl_4b_bf16.safetensors",
+      "class_type": "CLIPLoader"
+    },
+    "seed": {
+      "node_id": "54",
+      "field": "seed",
+      "type": "int",
+      "value": 972466630093584,
+      "class_type": "KSampler"
+    },
+    "steps": {
+      "node_id": "54",
+      "field": "steps",
+      "type": "int",
+      "value": 12,
+      "class_type": "KSampler"
+    },
+    "cfg": {
+      "node_id": "54",
+      "field": "cfg",
+      "type": "int",
+      "value": 1,
+      "class_type": "KSampler"
+    },
+    "sampler_name": {
+      "node_id": "54",
+      "field": "sampler_name",
+      "type": "string",
+      "value": "er_sde",
+      "class_type": "KSampler"
+    },
+    "scheduler": {
+      "node_id": "54",
+      "field": "scheduler",
+      "type": "string",
+      "value": "sgm_uniform",
+      "class_type": "KSampler"
+    },
+    "denoise": {
+      "node_id": "54",
+      "field": "denoise",
+      "type": "int",
+      "value": 1,
+      "class_type": "KSampler"
+    },
+    "width": {
+      "node_id": "57",
+      "field": "width",
+      "type": "int",
+      "value": 1024,
+      "class_type": "EmptyLatentImage"
+    },
+    "height": {
+      "node_id": "57",
+      "field": "height",
+      "type": "int",
+      "value": 1024,
+      "class_type": "EmptyLatentImage"
+    },
+    "batch_size": {
+      "node_id": "57",
+      "field": "batch_size",
+      "type": "int",
+      "value": 1,
+      "class_type": "EmptyLatentImage"
+    },
+    "vae_name": {
+      "node_id": "58",
+      "field": "vae_name",
+      "type": "string",
+      "value": "qwen_image_vae.safetensors",
+      "class_type": "VAELoader"
+    },
+    "filename_prefix": {
+      "node_id": "69",
+      "field": "filename_prefix",
+      "type": "string",
+      "value": "Krea2upscale",
+      "class_type": "SaveImage"
+    },
+    "lora_name": {
+      "node_id": "141",
+      "field": "lora_name",
+      "type": "string",
+      "value": "hina_krea2_asianMix_v1-bf16.safetensors",
+      "class_type": "LoraLoaderModelOnly"
+    },
+    "lora_strength": {
+      "node_id": "141",
+      "field": "strength_model",
+      "type": "float",
+      "value": 0.9,
+      "class_type": "LoraLoaderModelOnly"
+    }
+  },
+  "output_nodes": [
+    "69"
+  ],
+  "model_dependencies": [
+    {
+      "node_id": "52",
+      "class_type": "UNETLoader",
+      "field": "unet_name",
+      "value": "krea2_turbo_fp8_scaled.safetensors",
+      "folder": "unet"
+    },
+    {
+      "node_id": "53",
+      "class_type": "CLIPLoader",
+      "field": "clip_name",
+      "value": "qwen3vl_4b_bf16.safetensors",
+      "folder": "clip"
+    },
+    {
+      "node_id": "58",
+      "class_type": "VAELoader",
+      "field": "vae_name",
+      "value": "qwen_image_vae.safetensors",
+      "folder": "vae"
+    },
+    {
+      "node_id": "141",
+      "class_type": "LoraLoaderModelOnly",
+      "field": "lora_name",
+      "value": "hinablue__hinaMix__hina_Krea2_rosie_v1_4k.safetensors",
+      "folder": "loras"
+    }
+  ],
+  "embedding_dependencies": [],
+  "summary": {
+    "parameter_count": 16,
+    "output_node_count": 1,
+    "model_dep_count": 4,
+    "embedding_dep_count": 0,
+    "has_negative_prompt": false,
+    "has_seed": true,
+    "is_video_workflow": false
+  }
+}

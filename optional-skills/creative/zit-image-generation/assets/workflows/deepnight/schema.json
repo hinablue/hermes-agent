@@ -1,0 +1,145 @@
+{
+  "parameters": {
+    "unet_name": {
+      "node_id": "1",
+      "field": "unet_name",
+      "type": "string",
+      "value": "2127ZImageAsianUtopian_v36TurboFFV.safetensors",
+      "class_type": "UNETLoader"
+    },
+    "vae_name": {
+      "node_id": "4",
+      "field": "vae_name",
+      "type": "string",
+      "value": "ae.safetensors",
+      "class_type": "VAELoader"
+    },
+    "negative_prompt": {
+      "node_id": "8",
+      "field": "text",
+      "type": "string",
+      "value": "",
+      "class_type": "CLIPTextEncode"
+    },
+    "seed": {
+      "node_id": "9",
+      "field": "seed",
+      "type": "int",
+      "value": 1125899906842624,
+      "class_type": "KSampler"
+    },
+    "steps": {
+      "node_id": "9",
+      "field": "steps",
+      "type": "int",
+      "value": 8,
+      "class_type": "KSampler"
+    },
+    "cfg": {
+      "node_id": "9",
+      "field": "cfg",
+      "type": "int",
+      "value": 1,
+      "class_type": "KSampler"
+    },
+    "sampler_name": {
+      "node_id": "9",
+      "field": "sampler_name",
+      "type": "string",
+      "value": "er_sde",
+      "class_type": "KSampler"
+    },
+    "scheduler": {
+      "node_id": "9",
+      "field": "scheduler",
+      "type": "string",
+      "value": "bong_tangent",
+      "class_type": "KSampler"
+    },
+    "denoise": {
+      "node_id": "9",
+      "field": "denoise",
+      "type": "int",
+      "value": 1,
+      "class_type": "KSampler"
+    },
+    "width": {
+      "node_id": "10",
+      "field": "width",
+      "type": "int",
+      "value": 1024,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "height": {
+      "node_id": "10",
+      "field": "height",
+      "type": "int",
+      "value": 1536,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "batch_size": {
+      "node_id": "10",
+      "field": "batch_size",
+      "type": "int",
+      "value": 1,
+      "class_type": "EmptySD3LatentImage"
+    },
+    "filename_prefix": {
+      "node_id": "12",
+      "field": "filename_prefix",
+      "type": "string",
+      "value": "2026-05-28/zit",
+      "class_type": "SaveImage"
+    },
+    "clip_name": {
+      "node_id": "37",
+      "field": "clip_name",
+      "type": "string",
+      "value": "qwen_3_4b.safetensors",
+      "class_type": "CLIPLoader"
+    },
+    "user_prompt": {
+      "node_id": "39",
+      "field": "user_prompt",
+      "type": "string",
+      "value": "A woman with dark, tousled hair reclines in a white woven hammock suspended over a weathered wooden deck, wearing an oversized soft white T-shirt that drapes naturally over her body. Sunlight filters through overhead foliage, casting dappled shadows across the deck and illuminating her skin with soft, natural highlights. The hammock's frayed edges and coarse texture contrast with the relaxed fabric and the rustic wood grain, while the background reveals a rustic wooden structure softened by distance and shade.",
+      "class_type": "CLIPTextEncodeLumina2"
+    }
+  },
+  "output_nodes": [
+    "12"
+  ],
+  "model_dependencies": [
+    {
+      "node_id": "1",
+      "class_type": "UNETLoader",
+      "field": "unet_name",
+      "value": "2127ZImageAsianUtopian_v36TurboFFV.safetensors",
+      "folder": "unet"
+    },
+    {
+      "node_id": "4",
+      "class_type": "VAELoader",
+      "field": "vae_name",
+      "value": "ae.safetensors",
+      "folder": "vae"
+    },
+    {
+      "node_id": "37",
+      "class_type": "CLIPLoader",
+      "field": "clip_name",
+      "value": "qwen_3_4b.safetensors",
+      "folder": "clip"
+    }
+  ],
+  "embedding_dependencies": [],
+  "summary": {
+    "parameter_count": 14,
+    "output_node_count": 1,
+    "model_dep_count": 3,
+    "embedding_dep_count": 0,
+    "has_negative_prompt": true,
+    "has_seed": true,
+    "is_video_workflow": false
+  }
+}

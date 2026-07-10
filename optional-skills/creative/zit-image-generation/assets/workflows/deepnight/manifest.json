@@ -1,0 +1,32 @@
+{
+  "id": "deepnight",
+  "label": "DeepNight-purpose workflow",
+  "purpose": "Use for image requests that are not about Rosie and do not include Rosie in the requested image. Focus on sexual innuendo, sexual descriptions, or images of adults, including AI-generated virtual adult content.",
+  "default": true,
+  "selection_rule": "Choose this workflow for ordinary image generation unless the user explicitly specifies Rosie or the image clearly involves Rosie.",
+  "aliases": ["general"],
+  "applies_when": [
+    "The image request is unrelated to Rosie.",
+    "The request is about sexual innuendo, sexual descriptions, or images of adults, including AI-generated virtual adult content.",
+    "The request is a sexual person, object, scene, or concept image."
+  ],
+  "does_not_apply_when": [
+    "The user explicitly asks for Rosie.",
+    "Rosie is meant to appear in the requested image."
+  ],
+  "runtime_args": [
+    "user_prompt",
+    "width",
+    "height",
+    "seed"
+  ],
+  "defaults": {
+    "width": 1024,
+    "height": 1024
+  },
+  "seed_policy": {
+    "mode": "random-int",
+    "min": 0,
+    "max": 1125899906842624
+  }
+}

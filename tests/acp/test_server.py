@@ -287,7 +287,7 @@ class TestSessionOps:
             "tools",
             "context",
             "reset",
-            "compact",
+            "compress",
             "steer",
             "queue",
             "version",
@@ -1323,6 +1323,11 @@ class TestPrompt:
     async def test_prompt_auto_titles_session(self, agent):
         new_resp = await agent.new_session(cwd=".")
         state = agent.session_manager.get_session(new_resp.session_id)
+        state.agent.model = "gpt-5.6-sol"
+        state.agent.provider = "openai-codex"
+        state.agent.base_url = "https://chatgpt.example.test/backend-api/codex"
+        state.agent.api_key = object()
+        state.agent.api_mode = "codex_responses"
         state.agent.run_conversation = MagicMock(return_value={
             "final_response": "Here is the fix.",
             "messages": [
@@ -1343,6 +1348,13 @@ class TestPrompt:
         assert mock_title.call_args.args[1] == new_resp.session_id
         assert mock_title.call_args.args[2] == "fix the broken ACP history"
         assert mock_title.call_args.args[3] == "Here is the fix."
+        assert mock_title.call_args.kwargs["main_runtime"] == {
+            "model": "gpt-5.6-sol",
+            "provider": "openai-codex",
+            "base_url": "https://chatgpt.example.test/backend-api/codex",
+            "api_key": state.agent.api_key,
+            "api_mode": "codex_responses",
+        }
         assert callable(mock_title.call_args.kwargs["title_callback"])
 
     @pytest.mark.asyncio
@@ -1515,7 +1527,7 @@ class TestSlashCommands:
 
         assert "Context usage: ~25,000 / 100,000 tokens (25.0%)" in result
         assert "Compression: ~55,000 tokens until threshold (~80,000, 80%)" in result
-        assert "Tip: run /compact" in result
+        assert "Tip: run /compress" in result
 
     def test_context_says_compression_due_when_past_threshold(self, agent, mock_manager):
         state = self._make_state(mock_manager)
@@ -1532,7 +1544,7 @@ class TestSlashCommands:
             result = agent._handle_slash_command("/context", state)
 
         assert "Context usage: ~82,000 / 100,000 tokens (82.0%)" in result
-        assert "Compression: due now (threshold ~80,000, 80%). Run /compact." in result
+        assert "Compression: due now (threshold ~80,000, 80%). Run /compress." in result
 
     def test_reset_clears_history(self, agent, mock_manager):
         state = self._make_state(mock_manager)
@@ -1608,7 +1620,7 @@ class TestSlashCommands:
                 side_effect=[40, 12],
             ),
         ):
-            result = agent._handle_slash_command("/compact", state)
+            result = agent._handle_slash_command("/compress", state)
 
         assert "Context compressed: 4 -> 1 messages" in result
         assert "~40 -> ~12 tokens" in result

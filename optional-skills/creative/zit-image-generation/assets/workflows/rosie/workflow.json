@@ -93,8 +93,8 @@
   },
   "57": {
     "inputs": {
-      "width": 960,
-      "height": 1440,
+      "width": 1024,
+      "height": 1024,
       "batch_size": 1
     },
     "class_type": "EmptyLatentImage",
@@ -113,7 +113,7 @@
   },
   "151": {
     "inputs": {
-      "filename_prefix": "Krea2upscale",
+      "filename_prefix": "rosie_krea2",
       "images": [
         "56",
         0

@@ -67,14 +67,14 @@
       "node_id": "57",
       "field": "width",
       "type": "int",
-      "value": 960,
+      "value": 1024,
       "class_type": "EmptyLatentImage"
     },
     "height": {
       "node_id": "57",
       "field": "height",
       "type": "int",
-      "value": 1440,
+      "value": 1024,
       "class_type": "EmptyLatentImage"
     },
     "batch_size": {
@@ -95,7 +95,7 @@
       "node_id": "151",
       "field": "filename_prefix",
       "type": "string",
-      "value": "Krea2upscale",
+      "value": "rosie_krea2",
       "class_type": "SaveImage"
     },
     "lora_name": {

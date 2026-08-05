@@ -4,35 +4,35 @@
       "node_id": "51",
       "field": "text",
       "type": "string",
-      "value": "The camera angle is low and slightly frontal. Use shallow depth of field, cinematic color grading, high dynamic range, soft contrast, realistic fabric texture, natural skin detail, elegant posing, and painterly realism. The background should remain minimal and dreamlike, with distant bokeh, misty atmosphere, and a serene twilight horizon. The final image should feel poetic, refined, emotionally charged, and visually symbolic, blending high-fashion photography with surreal fine-art aesthetics.",
+      "value": "A young woman with dark hair tied in a high ponytail is captured mid-performance on a dimly lit stage, her expression focused and intense as she plays a sunburst-finish electric guitar.",
       "class_type": "CLIPTextEncode"
     },
     "unet_name": {
       "node_id": "52",
       "field": "unet_name",
       "type": "string",
-      "value": "krea2_turbo_fp8_scaled.safetensors",
+      "value": "1125Krea2AsianUtopian_v20.safetensors",
       "class_type": "UNETLoader"
     },
     "clip_name": {
       "node_id": "53",
       "field": "clip_name",
       "type": "string",
-      "value": "qwen3vl_4b_bf16.safetensors",
+      "value": "qwen3vl_4b_fp8_scaled.safetensors",
       "class_type": "CLIPLoader"
     },
     "seed": {
       "node_id": "54",
       "field": "seed",
       "type": "int",
-      "value": 972466630093584,
+      "value": 51437094762292,
       "class_type": "KSampler"
     },
     "steps": {
       "node_id": "54",
       "field": "steps",
       "type": "int",
-      "value": 12,
+      "value": 8,
       "class_type": "KSampler"
     },
     "cfg": {
@@ -92,43 +92,29 @@
       "class_type": "VAELoader"
     },
     "filename_prefix": {
-      "node_id": "69",
+      "node_id": "151",
       "field": "filename_prefix",
       "type": "string",
-      "value": "Krea2upscale",
+      "value": "general_krea2",
       "class_type": "SaveImage"
-    },
-    "lora_name": {
-      "node_id": "141",
-      "field": "lora_name",
-      "type": "string",
-      "value": "hina_krea2_asianMix_v1-bf16.safetensors",
-      "class_type": "LoraLoaderModelOnly"
-    },
-    "lora_strength": {
-      "node_id": "141",
-      "field": "strength_model",
-      "type": "float",
-      "value": 0.9,
-      "class_type": "LoraLoaderModelOnly"
     }
   },
   "output_nodes": [
-    "69"
+    "151"
   ],
   "model_dependencies": [
     {
       "node_id": "52",
       "class_type": "UNETLoader",
       "field": "unet_name",
-      "value": "krea2_turbo_fp8_scaled.safetensors",
+      "value": "1125Krea2AsianUtopian_v20.safetensors",
       "folder": "unet"
     },
     {
       "node_id": "53",
       "class_type": "CLIPLoader",
       "field": "clip_name",
-      "value": "qwen3vl_4b_bf16.safetensors",
+      "value": "qwen3vl_4b_fp8_scaled.safetensors",
       "folder": "clip"
     },
     {
@@ -137,20 +123,13 @@
       "field": "vae_name",
       "value": "qwen_image_vae.safetensors",
       "folder": "vae"
-    },
-    {
-      "node_id": "141",
-      "class_type": "LoraLoaderModelOnly",
-      "field": "lora_name",
-      "value": "hinablue__hinaMix__hina_Krea2_rosie_v1_4k.safetensors",
-      "folder": "loras"
     }
   ],
   "embedding_dependencies": [],
   "summary": {
-    "parameter_count": 16,
+    "parameter_count": 14,
     "output_node_count": 1,
-    "model_dep_count": 4,
+    "model_dep_count": 3,
     "embedding_dep_count": 0,
     "has_negative_prompt": false,
     "has_seed": true,

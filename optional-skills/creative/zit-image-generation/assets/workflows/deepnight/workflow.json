@@ -1,7 +1,20 @@
 {
-  "1": {
+  "51": {
     "inputs": {
-      "unet_name": "2127ZImageAsianUtopian_v36TurboFFV.safetensors",
+      "text": "A young woman with dark hair tied in a high ponytail is captured mid-performance on a dimly lit stage, her expression focused and intense as she plays a sunburst-finish electric guitar.",
+      "clip": [
+        "53",
+        0
+      ]
+    },
+    "class_type": "CLIPTextEncode",
+    "_meta": {
+      "title": "CLIP 文字編碼（提示詞）"
+    }
+  },
+  "52": {
+    "inputs": {
+      "unet_name": "1125Krea2AsianUtopian_v20.safetensors",
       "weight_dtype": "default"
     },
     "class_type": "UNETLoader",
@@ -9,50 +22,39 @@
       "title": "載入擴散模型"
     }
   },
-  "4": {
+  "53": {
     "inputs": {
-      "vae_name": "ae.safetensors"
+      "clip_name": "qwen3vl_4b_fp8_scaled.safetensors",
+      "type": "krea2",
+      "device": "default"
     },
-    "class_type": "VAELoader",
+    "class_type": "CLIPLoader",
     "_meta": {
-      "title": "載入 VAE"
+      "title": "載入 CLIP"
     }
   },
-  "8": {
+  "54": {
     "inputs": {
-      "text": "",
-      "clip": [
-        "37",
-        0
-      ]
-    },
-    "class_type": "CLIPTextEncode",
-    "_meta": {
-      "title": "Negative Prompt"
-    }
-  },
-  "9": {
-    "inputs": {
-      "seed": 1125899906842624,
+      "seed": 51437094762292,
       "steps": 8,
       "cfg": 1,
       "sampler_name": "er_sde",
-      "scheduler": "bong_tangent",
+      "scheduler": "sgm_uniform",
       "denoise": 1,
       "model": [
-        "1",
+        "52",
         0
       ],
       "positive": [
-        "39",
+        "51",
         0
       ],
       "negative": [
-        "8",
+        "55",
         0
       ],
       "latent_image": [
-        "10",
+        "57",
         0
       ]
     },
@@ -61,25 +63,26 @@
       "title": "KSampler"
     }
   },
-  "10": {
+  "55": {
     "inputs": {
-      "width": 1024,
-      "height": 1536,
-      "batch_size": 1
+      "conditioning": [
+        "51",
+        0
+      ]
     },
-    "class_type": "EmptySD3LatentImage",
+    "class_type": "ConditioningZeroOut",
     "_meta": {
-      "title": "EmptySD3LatentImage"
+      "title": "條件設定（歸零）"
     }
   },
-  "11": {
+  "56": {
     "inputs": {
       "samples": [
-        "9",
+        "54",
         0
       ],
       "vae": [
-        "4",
+        "58",
         0
       ]
     },
@@ -88,42 +91,37 @@
       "title": "VAE 解碼"
     }
   },
-  "12": {
+  "57": {
     "inputs": {
-      "filename_prefix": "2026-05-28/zit",
+      "width": 1024,
+      "height": 1024,
+      "batch_size": 1
+    },
+    "class_type": "EmptyLatentImage",
+    "_meta": {
+      "title": "空白潛在影像"
+    }
+  },
+  "58": {
+    "inputs": {
+      "vae_name": "qwen_image_vae.safetensors"
+    },
+    "class_type": "VAELoader",
+    "_meta": {
+      "title": "載入 VAE"
+    }
+  },
+  "151": {
+    "inputs": {
+      "filename_prefix": "general_krea2",
       "images": [
-        "11",
+        "56",
         0
       ]
     },
     "class_type": "SaveImage",
     "_meta": {
       "title": "儲存圖片"
-    }
-  },
-  "37": {
-    "inputs": {
-      "clip_name": "qwen_3_4b.safetensors",
-      "type": "lumina2",
-      "device": "default"
-    },
-    "class_type": "CLIPLoader",
-    "_meta": {
-      "title": "載入 CLIP"
-    }
-  },
-  "39": {
-    "inputs": {
-      "system_prompt": "alignment",
-      "user_prompt": "A young woman with long brown hair reclines on a crumpled white sheet, propped up on her elbow. The composition focuses on her facial expression and calico cat - a vibrant and relaxed pose that conveys a frank sensuality and refreshing beauty.",
-      "clip": [
-        "37",
-        0
-      ]
-    },
-    "class_type": "CLIPTextEncodeLumina2",
-    "_meta": {
-      "title": "CLIP 文本編碼（Lumina2）"
     }
   }
 }

@@ -43,7 +43,7 @@ _HERMES_CORE_TOOLS = [
     # File manipulation
     "read_file", "write_file", "patch", "search_files",
     # Vision + image generation
-    "vision_analyze", "image_generate",
+    "vision_analyze", "image_generate", "zit_image_generate",
     # BFL FLUX 3 video generation
     "bfl_flux3_text_to_video", "bfl_flux3_image_to_video",
     "bfl_flux3_keyframes_to_video", "bfl_flux3_video_continuation",

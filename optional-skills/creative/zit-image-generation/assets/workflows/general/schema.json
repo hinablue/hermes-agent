@@ -18,7 +18,7 @@
       "node_id": "53",
       "field": "clip_name",
       "type": "string",
-      "value": "qwen3vl_4b_fp8_scaled.safetensors",
+      "value": "qwen3vl_4b_bf16.safetensors",
       "class_type": "CLIPLoader"
     },
     "seed": {

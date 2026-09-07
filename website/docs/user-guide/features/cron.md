@@ -334,6 +334,19 @@ Inspect recent attempts with `hermes cron runs [job-id] --limit 20` (alias:
 `history`). Terminal history is bounded; active attempts are never pruned. The
 ledger is included in quick backups.
 
+Scheduled attempts also record their exact scheduled instant, separately from
+the time they were claimed. If an old `jobs.json` snapshot re-arms an occurrence
+that the retained ledger records as completed, Hermes skips that replay and
+re-anchors recurring jobs. This works even when the snapshot predates the
+dispatch stamp or the original run started late. Explicit manual runs do not
+consume a scheduled occurrence's identity.
+
+This is not an exactly-once side-effect guarantee: legacy rows without an
+identity, pruned history, unavailable ledgers, and interrupted attempts cannot
+prove completion. Restoring the ledger itself to an older backup also removes
+that evidence. External fire callbacks identify the currently accepted store
+claim, not an upstream scheduled slot absent from the callback.
+
 ### Repeated-failure review nudge
 
 Each job tracks a `failure_streak` — consecutive failed runs (delivery
@@ -804,7 +817,7 @@ cronjob(
 )
 ```
 
-The first run has no previous output, so the prompt runs as-is. On later runs the previous output is prepended with continuity framing ("avoid repeating what was already reported"). It combines freely with upstream jobs (`context_from=["<other_job_id>"]` plus `continuity=true`), and `continuity=false` on update turns it off while preserving other `context_from` entries. Internally the flag is stored as the reserved `self` entry in `context_from`.
+The first run has no previous output, so the prompt runs as-is. Silent monitor ticks (`no_change`), empty output, and `wakeAgent=false` audit records are skipped when selecting context, so a quiet period preserves the latest substantive output. Audit files remain on disk. Error documents remain eligible to give the next run recovery context; this is not a success-only history filter. On later runs the previous output is prepended with continuity framing ("avoid repeating what was already reported"). It combines freely with upstream jobs (`context_from=["<other_job_id>"]` plus `continuity=true`), and `continuity=false` on update turns it off while preserving other `context_from` entries. Internally the flag is stored as the reserved `self` entry in `context_from`.
 
 From the CLI: `hermes cron create "every 6h" "Scan for news" --continuity`, and `hermes cron edit <job_id> --continuity` / `--no-continuity` to toggle it on an existing job. The same toggle appears in the dashboard's cron editor and the desktop Bot Mode routine dialog.
 
@@ -823,6 +836,20 @@ Cron jobs inherit your configured fallback providers and credential pool rotatio
 - **Rotate to the next credential** in your [credential pool](/user-guide/configuration#credential-pool-strategies) for the same provider
 
 This means cron jobs that run at high frequency or during peak hours are more resilient — a single rate-limited key won't fail the entire run.
+
+## Run failures (`last_error`)
+
+A failed agent run records a concise `last_error`, visible in job listings and `/cron list`
+with credential patterns and URL credentials redacted (including previously stored errors).
+This is separate from `last_fire_error` (scheduler handoff) and `last_delivery_error` (delivery).
+Those fields can correctly be empty when the agent itself failed.
+
+For a connection failure, inspect the run document under `cron/output/<job_id>/` in the active
+Hermes home. Its `## Error` section includes the chained traceback, with credential patterns
+and URL credentials redacted. The file uses the existing private output-file permissions;
+traceback locals are not captured. Delivery notices and `last_error` retain the concise error,
+not the full traceback. Review diagnostics before sharing: redaction is not a guarantee that
+arbitrary application data is non-sensitive.
 
 ## Missed scheduled fires (`last_fire_error`)
 

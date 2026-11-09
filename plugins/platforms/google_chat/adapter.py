@@ -12,6 +12,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import contextvars
+import html
 import importlib
 import json
 import logging
@@ -126,7 +127,7 @@ from gateway.config import Platform, PlatformConfig
 # Register the dynamic enum member at import time so ``Platform.GOOGLE_CHAT``
 # resolves before any adapter instance exists.
 Platform("google_chat")
-from gateway.platforms.helpers import MessageDeduplicator
+from gateway.platforms.helpers import MessageDeduplicator, numbered_clarify_choices
 from gateway.platforms.base import (
     gateway_trust_env, BasePlatformAdapter, SendResult,
     cache_audio_from_bytes_async, cache_document_from_bytes_async, cache_image_from_bytes_async,
@@ -328,6 +329,13 @@ class _ThreadCountStore:
         chat_counts[thread_name] = prev + 1
         self._save()
         return prev
+
+    def decr(self, chat_id: str, thread_name: str) -> None:
+        """Undo one :meth:`incr` for an inbound that was not admitted; never below zero."""
+        chat_counts = self._counts.get(chat_id, {})
+        if chat_counts.get(thread_name, 0) > 0:
+            chat_counts[thread_name] -= 1
+            self._save()
 
     def _save(self) -> None:
         """Atomic write; failure is non-fatal (in-memory counts stay consistent)."""
@@ -858,10 +866,27 @@ class GoogleChatAdapter(BasePlatformAdapter):
                 message.ack()
 
     async def dispatch_http_event(self, envelope: dict[str, Any]) -> dict[str, Any]:
+        from gateway.parked_route_refusal import ParkedRouteRefused, retryable_ingress
         prepared = self._prepare_inbound(envelope)
-        if prepared is not None:
+        if prepared is None:
+            return {}
+        # The callback answers after this dispatch, so the delivery is not acknowledged yet: a route
+        # to a parked profile is answered retryably (Google redelivers a non-2xx), not refused in chat.
+        with retryable_ingress() as scope:
             await self._dispatch_message(*prepared)
+        if scope.refused:
+            self._release_unadmitted(*prepared)
+            raise ParkedRouteRefused()
         return {}
+
+    def _release_unadmitted(self, msg: dict[str, Any], envelope: dict[str, Any]) -> None:
+        """Undo what ingress recorded for a delivery that was not admitted (its dedup claim and DM
+        thread count), so the platform's redelivery is admitted and read as the first delivery."""
+        self._dedup.discard(msg.get("name") or "")
+        space_name = (envelope.get("space") or msg.get("space") or {}).get("name") or ""
+        thread_name = (msg.get("thread") or {}).get("name") or ""
+        if space_name and thread_name:
+            self._thread_count_store.decr(space_name, thread_name)
 
     def verify_http_event_request(self, auth_header: str) -> tuple[bool, str]:
         if not self._http_events_audience or not self._http_events_service_account_email:
@@ -1120,17 +1145,24 @@ class GoogleChatAdapter(BasePlatformAdapter):
 
         def _button(text: str, choice: str) -> dict[str, Any]:
             return {"text": text, "action": "hermes_clarify", "parameters": {"clarify_id": clarify_id, "choice": choice}}
-        buttons: list[dict[str, Any]] = []
-        for choice in choices:
-            choice_text = str(choice).strip()
-            if choice_text:
-                buttons.append(_button(choice_text if len(choice_text) <= 80 else choice_text[:77] + "...", choice_text))
+        clean = [s for s in (str(c).strip() for c in choices) if s]
+        # Card buttons clip long labels with no tooltip (#78115): list the full options in the
+        # text widget and label the buttons positionally when any option is that wide.
+        # The text widget renders HTML: escaped so an option reads exactly as written, and appended
+        # after the card build so its Markdown pass (``**bold**`` -> ``*bold*``) never rewrites an option.
+        numbered = numbered_clarify_choices(clean, max_label_cols=48, escape=lambda s: html.escape(s, quote=False))
+        buttons: list[dict[str, Any]] = [
+            _button(str(i) if numbered else choice_text, choice_text)
+            for i, choice_text in enumerate(clean, start=1)
+        ]
         buttons.append(_button(t("platform.google_chat.clarify.other_button"), "__other__"))
         card = card_spec_to_cards_v2({
             "card_id": f"clarify-{clarify_id}", "header": {"title": t("platform.google_chat.clarify.header")},
             "sections": [{"widgets": [{"type": "text", "text": t("platform.google_chat.clarify.question", question=question)},
                                       {"type": "buttons", "buttons": buttons}]}],
         })
+        if numbered:
+            card["card"]["sections"][0]["widgets"][0]["textParagraph"]["text"] += f"\n\n{numbered}"
         result = await self.send_card(chat_id, card, metadata=metadata)
         if result.success:
             self._clarify_state[clarify_id] = session_key
@@ -1751,6 +1783,8 @@ def register(ctx) -> None:
     """Plugin entry point: registers the ``google_chat`` adapter with the platform registry."""
     ctx.register_platform(
         name="google_chat",
+        dashboard_description="Connect Hermes to Google Chat via Cloud Pub/Sub.",
+        docs_url="https://hermes-agent.nousresearch.com/docs/user-guide/messaging/google_chat",
         label="Google Chat",
         adapter_factory=lambda cfg: GoogleChatAdapter(cfg),
         check_fn=_check_for_registry,
